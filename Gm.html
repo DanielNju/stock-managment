@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width , initial-scale=1">
+  <title>Smart stock</title>
+  <link rel="stylesheet" href="Gm.css?v=3">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+  <header><h1>Smart Stock</h1></header>
+
+ <section id="upload_section">
+    <h2>Upload Image</h2>
+
+    <form id="upload_form" enctype="multipart/form-data">
+      <label for="upload">Choose image type</label>
+      <select name="upload_type" id="upload" required>
+        <option value="">Select image type</option>
+        <option value="sale">Sales image</option>
+        <option value="stock">Stock image</option>
+      </select>
+
+      <!-- Manual entry button (hidden initially) -->
+      <button type="button" id="manual_entry_btn" class="btn" style="display:none; margin-left:12px;">✍️ Enter Items Manually</button>
+
+      <div id="image_container" style="display:none;">
+        <!-- Image upload and preview -->
+        <div class="upload-section">
+          <div class="preview-container">
+            <label for="image_upload">Upload image here</label>
+            <input type="file" id="image_upload" name="images[]" multiple accept="image/*" >
+            <img id="image_preview" src="" alt="Image preview" style="display:none;">
+          </div>
+        </div>
+
+        <!-- Camera capture and multiple previews (new) -->
+        <div class="camera-section">
+          <button type="button" id="take_photo_btn" class="btn">📸 Take Photo</button>
+          <input type="file" id="camera_capture" accept="image/*" capture="environment" style="display:none;">
+        </div>
+        <div id="image_previews" class="image-previews" style="display: none; margin-top: 10px;"></div>
+          <button type="submit" class="submit-btn">Upload & Scan</button> <br><br>
+        <!-- Table + Loader Section -->
+        <div id="table_section" style="display:none;">
+          <div id="loader" style="display:none;">
+            <div class="spinner"></div>
+            <div class="loader-text">Scanning in progress...</div>
+          </div>
+
+          <table id="result_table" style="display:none;">
+            <thead>
+              <tr>
+                <th>Item Name</th>
+                <th>Part No</th>
+                <th>Brand</th>
+                <th>Qty</th>
+                <th>Unit Price</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody></tbody> 
+          </table>
+        </div>
+
+        <!-- Toolbar now inside a flex wrapper for desktop, stacks on mobile -->
+        <div class="table-toolbar">
+          <div class="toolbar-left">
+            <button type="button" id="review_mode_btn">Start Guided Review</button>
+            <button type="button" id="add_row_btn">+ Add Row</button>
+          </div>
+          <div class="toolbar-right">
+            <button type="button" id="approve_btn" disabled>Approve & Save</button>
+          </div>
+        </div>
+      
+        <div id="dropped_section" style="display:none; margin-top:20px;">
+          <h4>Possible missed rows (dropped during cleanup)</h4>
+          <ul id="dropped_list"></ul>
+        </div>
+        <button type="button" id="toggle_dropped_btn" style="display:none;">Show Possible rows</button>
+
+        <div id="review_warning" style="display:none;"></div>
+      </div>
+    </form>
+
+    <!-- Camera Modal (mobile-safe capture) -->
+    <div id="camera_modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.85); z-index:9999; align-items:center; justify-content:center; padding:12px;">
+      <div style="background:#111; border-radius:12px; width:min(520px, 100%); padding:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+          <div style="color:#fff; font-weight:700;">Camera</div>
+          <button type="button" id="cam_close_btn" class="btn">✖</button>
+        </div>
+        <video id="cam_video" autoplay playsinline style="width:100%; border-radius:10px; background:#000; margin-top:10px;"></video>
+        <canvas id="cam_canvas" style="display:none;"></canvas>
+        <div style="display:flex; gap:10px; margin-top:10px;">
+          <button type="button" id="cam_capture_btn" class="btn" style="flex:1;">📸 Capture</button>
+          <button type="button" id="cam_torch_btn" class="btn" style="flex:1; display:none;">🔦 Torch: Off</button>
+        </div>
+        <div id="cam_hint" style="color:#bbb; font-size:12px; margin-top:8px;"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Dashboard sections remain unchanged -->
+  <section id="notification">
+    <div class="dash-card">
+      <div class="card-head">
+        <div>
+          <h2 class="dash-title">Low Stock</h2>
+          <p class="dash-subtitle">The following items need your attention</p>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table id="low_stock">
+          <thead>
+            <tr>
+              <th>Item name</th>
+              <th>Part_no</th>
+              <th class="num">Remaining stock</th>
+              <th>Item brand</th>
+              <th>Last restocked</th>
+            </tr>
+          </thead>
+          <tbody id="lows_stock_table">
+            <!-- JS fills rows -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="debt_section" style="display: block; margin-top: 30px;">
+  <h2>💳 Debt Management</h2>
+
+  <!-- Add new debtor form -->
+  <form id="debt_add_form" class="debt-form">
+    <fieldset>
+      <legend>New Debtor</legend>
+
+      <div class="form-group">
+        <label for="debtor_name">Full name *</label>
+        <input type="text" id="debtor_name" placeholder="e.g. Jane Muthoni" required>
+      </div>
+
+      <div class="form-group">
+        <label for="debtor_phone">Phone number</label>
+        <input type="text" id="debtor_phone" placeholder="07XX XXX XXX">
+      </div>
+
+      <div class="form-group">
+        <label for="debt_repay_rate">Repayment plan</label>
+        <select id="debt_repay_rate">
+          <option value="weekly">Weekly</option>
+          <option value="biweekly">Bi‑Weekly</option>
+          <option value="monthly" selected>Monthly</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="debt_due_date">Repay date</label>
+        <input type="date" id="debt_due_date">
+      </div>
+
+      <!-- Items the debtor will owe -->
+      <div class="form-group" style="flex-direction: column; align-items: flex-start;">
+        <label>Items taken on debt</label>
+        
+        <!-- Mobile scroll wrapper -->
+        <div class="table-scroll-wrapper" style="margin: 0 -8px; padding: 0 8px;">
+          <table id="new_debtor_items_table" class="inline-items-table">
+            <thead>
+              <tr>
+                <th>Item name</th>
+                <th>Part No (opt)</th>
+                <th>Qty</th>
+                <th>Unit price</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="item-row">
+                <td><input type="text" class="item_name" placeholder="Item name" required></td>
+                <td><input type="text" class="part_no" placeholder="Optional"></td>
+                <td><input type="number" class="qty" min="1" value="1" required></td>
+                <td><input type="number" step="0.01" class="price" placeholder="0.00" required></td>
+                <td><button type="button" class="remove_row_btn" aria-label="Remove item"></button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        
+        <!-- Add row button outside scroll wrapper -->
+        <button type="button" id="add_item_row_btn" style="margin-top: 8px;">+ Add Item</button>
+      </div>
+
+      <button type="submit" class="btn primary">➕ Save Debtor</button>
+    </fieldset>
+  </form>
+
+  <!-- Debtor cards will be inserted here -->
+  <div id="debtors_list"></div>
+</section>
+</form>
+  <!-- Debtor cards will be inserted here -->
+  <div id="debtors_list"></div>
+</section>
+
+  <section id="charts">
+    <div class="charts-grid">
+      <div id="weekly-card" class="dash-card">
+        <div class="card-head">
+          <h3 class="dash-title">This week sales (Mon–Sat)</h3>
+          <div class="card-meta">Revenue (KES)</div>
+        </div>
+        <div class="chart-box">
+          <canvas id="weeklyChart"></canvas>
+        </div>
+      </div>
+      <div id="top8-card" class="dash-card">
+        <div class="card-head">
+          <h3 class="dash-title" id="top8Title">Most sold goods</h3>
+          <div class="card-meta">By quantity</div>
+        </div>
+        <div class="chart-box">
+          <canvas id="barChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="montly-chart" class="dash-card" style="display:none;">
+    <div class="card-head">
+      <h3 class="dash-title">Last month sales (daily)</h3>
+      <div class="card-meta">Revenue (KES)</div>
+    </div>
+    <div class="chart-box">
+      <canvas id="monthlyChart"></canvas>
+    </div>
+  </section>
+
+  <section id="yearly-chart" class="dash-card" style="display:none;">
+    <div class="card-head">
+      <h3 class="dash-title">Yearly sales</h3>
+      <div class="card-meta">Revenue (KES)</div>
+    </div>
+    <div class="chart-box">
+      <canvas id="yearlyCharts"></canvas>
+    </div>
+  </section>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="Gm.js?v=20260304_1"></script>
+</body>
+</html>

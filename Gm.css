@@ -1,0 +1,1709 @@
+/* === MODERN, APPEALING TYPOGRAPHY & COLOR === */
+/* Font stack: clean, modern, highly readable */
+:root {
+    --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --color-primary: #4f46e5;        /* Indigo-600 — unique & professional */
+    --color-primary-hover: #4338ca;  /* Indigo-700 */
+    --color-heading: #1e293b;        /* Slate-800 */
+    --color-text: #0f172a;           /* Slate-900 */
+    --color-label: #334155;          /* Slate-600 */
+    --color-border: #e2e8f0;         /* Slate-200 */
+    --color-bg-input: #ffffff;
+    --color-bg-preview: #f8fafc;     /* Slate-50 */
+    --bg-page: linear-gradient(145deg, #f1f5f9 0%, #f8fafc 100%); /* subtle gradient */
+}
+
+/* Apply font and page background globally */
+* {
+    font-family: var(--font-sans);
+    /* ✅ ADDED: Global box-sizing to prevent layout calculation issues */
+    box-sizing: border-box;
+}
+
+body {
+    background: var(--bg-page);
+    margin: 0;
+    padding: 20px;
+    min-height: 100vh;
+}
+
+/* Card background colors (light, complementary) */
+#upload_section {
+    background: #ffffff;
+    background: linear-gradient(to right, #ffffff, #faf5ff); /* very light indigo hint */
+    border-left: 6px solid #4f46e5; /* indigo */
+    padding: 28px;
+    border-radius: 14px;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.07);
+    width: 100%;
+    max-width: 100%;
+    margin: 0 auto 20px auto;
+    box-sizing: border-box;
+    transition: box-shadow 0.3s ease;
+}
+
+#table_section {
+    background: #ffffff;
+    background: linear-gradient(to right, #ffffff, #f0f9ff); /* very light sky */
+    border-left: 6px solid #0ea5e9; /* sky */
+    /* rest of table section styles */
+}
+
+#notification .dash-card {
+    background: #ffffff;
+    background: linear-gradient(to right, #ffffff, #ecfdf5); /* very light emerald */
+    border-left: 6px solid #10b981; /* emerald */
+}
+
+#charts .dash-card {
+    background: #ffffff;
+    background: linear-gradient(to right, #ffffff, #fffbeb); /* very light amber */
+    border-left: 6px solid #f59e0b; /* amber */
+}
+
+#montly-chart.dash-card {
+    background: #ffffff;
+    background: linear-gradient(to right, #ffffff, #f3e8ff); /* very light violet */
+    border-left: 6px solid #8b5cf6; /* violet */
+}
+
+#yearly-chart.dash-card {
+    background: #ffffff;
+    background: linear-gradient(to right, #ffffff, #fdf2f8); /* very light pink */
+    border-left: 6px solid #ec4899; /* pink */
+}
+
+#upload_section:hover,
+#table_section:hover,
+#notification .dash-card:hover,
+#charts .dash-card:hover,
+#montly-chart.dash-card:hover,
+#yearly-chart.dash-card:hover {
+    box-shadow: 0 6px 28px rgba(0, 0, 0, 0.10);
+    transform: translateY(-1px);
+}
+
+#upload_section > h2 {
+    color: var(--color-heading);
+    margin-bottom: 24px;
+    font-size: 24px;
+    font-weight: 700;
+    text-align: left;
+    letter-spacing: -0.2px;
+    width: 100%;
+}
+
+/* Form styling */
+#upload_form {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* Labels: bolder, larger, clearer */
+#upload_form > label[for="upload"],
+#upload_form > #image_container .preview-container > label[for="image_upload"] {
+    font-weight: 600;
+    display: block;
+    margin-bottom: 8px;
+    color: var(--color-label);
+    width: 100%;
+    font-size: 15px;
+    line-height: 1.4;
+}
+
+/* COMPACT dropdown (~10 chars) */
+#upload_form > #upload {
+    padding: 11px 14px;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    font-size: 15px;
+    font-family: var(--font-sans);
+    color: var(--color-text);
+    background-color: var(--color-bg-input);
+    transition: border-color 0.2s, box-shadow 0.2s;
+    box-sizing: border-box;
+    width: auto;
+    min-width: 9ch;
+    max-width: 22ch;
+    display: inline-block;
+    vertical-align: top;
+}
+
+/* Manual entry button */
+#manual_entry_btn {
+    margin-left: 12px;
+    background: #0f172a;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform .15s, opacity .15s, background .2s;
+}
+
+#manual_entry_btn:hover {
+    opacity: 0.92;
+    transform: translateY(-1px);
+}
+
+/* File input */
+#image_upload {
+    padding: 11px 14px;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    width: 100%;
+    max-width: 300px;
+    font-size: 15px;
+    font-family: var(--font-sans);
+    color: var(--color-text);
+    background-color: var(--color-bg-input);
+    transition: border-color 0.2s, box-shadow 0.2s;
+    box-sizing: border-box;
+}
+
+/* Focus states */
+#upload_form > #upload:focus,
+#image_upload:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+}
+
+/* Image container — hidden until selection */
+#image_container {
+    display: none;
+    width: 100%;
+    box-sizing: border-box;
+    margin-top: 24px;
+}
+
+#image_container .upload-section {
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+    width: 100%;
+    box-sizing: border-box;
+    margin-bottom: 24px;
+}
+
+@media (min-width: 768px) {
+    #image_container .upload-section {
+        flex-direction: row;
+        gap: 32px;
+    }
+
+    #upload_section {
+        padding: 36px;
+        max-width: 95%;
+    }
+}
+
+/* Image preview */
+#image_preview {
+    max-width: 100%;
+    width: 100%;
+    height: auto;
+    border: 1px dashed #cbd5e1;
+    padding: 12px;
+    border-radius: 10px;
+    background-color: var(--color-bg-preview);
+    display: none;
+    box-sizing: border-box;
+    margin-top: 12px;
+}
+
+#image_preview.show {
+    display: block;
+}
+
+@media (min-width: 768px) {
+    #image_preview {
+        max-width: 400px;
+        width: auto;
+        min-width: 200px;
+    }
+
+    #image_container .preview-container {
+        flex: 1;
+        min-width: 0;
+    }
+}
+
+/* === TABLE SECTION === */
+#table_section {
+    width: 100%;
+    box-sizing: border-box;
+    position: relative;
+    min-height: 220px;
+    margin: 20px 0;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    display: none;
+    max-height: 450px;
+}
+
+#table_section.show {
+    display: block;
+}
+
+/* Loader overlay */
+#loader {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.88);
+    color: #fff;
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    border-radius: 10px;
+    z-index: 10;
+    box-sizing: border-box;
+    backdrop-filter: blur(6px);
+}
+
+#loader.show {
+    display: flex;
+}
+
+#loader > .spinner {
+    border: 4px solid #f8fafc;
+    border-top: 4px solid var(--color-primary);
+    border-radius: 50%;
+    width: 46px;
+    height: 46px;
+    animation: upload-section-spin 1s linear infinite;
+    margin-bottom: 16px;
+}
+
+#loader > .loader-text {
+    font-size: 15px;
+    font-weight: 600;
+    text-align: center;
+    padding: 0 12px;
+    color: white;
+}
+
+/* Results table */
+#result_table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid #e2e8f0;
+    table-layout: fixed;
+    box-sizing: border-box;
+    background: white;
+    display: none;
+}
+
+#result_table.show {
+    display: table;
+}
+
+#result_table > thead > tr > th {
+    background: var(--color-primary);
+    color: white;
+    padding: 14px 12px;
+    text-align: left;
+    font-weight: 700;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+#result_table > tbody > tr > td {
+    padding: 14px 12px;
+    border: 1px solid #e2e8f0;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--color-heading);
+    background-color: #ffffff;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    word-break: break-word;
+}
+
+#result_table > tbody > tr:nth-child(even) > td {
+    background-color: #f9fafb;
+}
+
+/* Submit button */
+#upload_form > #image_container > button[type="submit"] {
+    background: var(--color-primary);
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    transition: background 0.2s, transform 0.15s;
+    box-sizing: border-box;
+    width: 100%;
+    align-self: stretch;
+    box-shadow: 0 2px 6px rgba(79, 70, 229, 0.2);
+    margin-top: 16px;
+}
+
+#upload_form > #image_container > button[type="submit"]:hover {
+    background: var(--color-primary-hover);
+    transform: translateY(-1px);
+}
+
+#upload_form > #image_container > button[type="submit"]:active {
+    transform: translateY(0);
+}
+
+@media (min-width: 768px) {
+    #upload_form > #image_container > button[type="submit"] {
+        width: auto;
+        align-self: flex-start;
+    }
+}
+
+/* Animation */
+@keyframes upload-section-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Focus accessibility */
+#upload_form > #upload:focus,
+#image_upload:focus,
+#upload_form > #image_container > button[type="submit"]:focus {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+/* =========================================================
+   OCR REVIEW UI (Approve + warnings) — matches your theme
+========================================================= */
+
+/* Inputs inside table cells */
+.ocr-input {
+    width: 100%;
+    padding: 10px 10px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--color-heading);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    background: var(--color-bg-input);
+    box-sizing: border-box;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.ocr-input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+}
+
+/* Required inputs */
+.ocr-input.required {
+    border-color: #cbd5e1;
+}
+
+/* Missing fields */
+.ocr-input.missing {
+    border: 2px solid #ef4444;
+    background: #fff1f2;
+}
+
+/* Warning box */
+#review_warning {
+    display: none;
+    margin: 12px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+    color: #9a3412;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+/* Approve button */
+#approve_btn {
+    margin: 0 12px 12px 12px;
+    background: var(--color-primary);
+    color: white;
+    padding: 10px 18px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+    transition: background 0.2s, transform 0.15s, opacity 0.15s;
+    box-shadow: 0 2px 6px rgba(79, 70, 229, 0.2);
+}
+
+#approve_btn:hover {
+    background: var(--color-primary-hover);
+    transform: translateY(-1px);
+}
+
+#approve_btn:active {
+    transform: translateY(0);
+}
+
+#approve_btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Table cells align nicely with inputs */
+#result_table > tbody > tr > td {
+    padding: 10px 12px;
+}
+
+/* Total column read-only */
+#result_table td[data-field="total"] {
+    font-weight: 700;
+    color: var(--color-text);
+}
+
+/* Toolbar */
+.table-toolbar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: white;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.toolbar-left, .toolbar-right {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+#review_mode_btn, #add_row_btn, #approve_btn {
+    border: none;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform .15s, opacity .15s, background .2s;
+}
+
+#review_mode_btn, #add_row_btn {
+    background: #0f172a;
+    color: white;
+}
+
+#review_mode_btn:hover, #add_row_btn:hover {
+    opacity: 0.92;
+    transform: translateY(-1px);
+}
+
+#review_mode_btn:active, #add_row_btn:active {
+    transform: translateY(0);
+}
+
+#approve_btn {
+    background: var(--color-primary);
+    color: white;
+}
+
+#approve_btn:hover {
+    background: var(--color-primary-hover);
+    transform: translateY(-1px);
+}
+
+#approve_btn:active {
+    transform: translateY(0);
+}
+
+#approve_btn:disabled {
+    opacity: .55;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Cell with badge */
+td.cell-wrap {
+    display: table-cell !important;
+    position: relative;
+    padding: 12px;
+}
+
+td.cell-wrap .review-badge {
+    position: absolute;
+    left: 6px;
+    top: 6px;
+    font-size: 14px;
+    line-height: 1;
+}
+
+td.cell-wrap .ocr-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding-left: 22px;
+}
+
+/* Highlight colors (per column overlays) */
+td.cell-wrap {
+    --hl: rgba(79,70,229,.18);
+    --hlStrong: rgba(79,70,229,.28);
+}
+td.col-item_name  { --hl: rgba(212, 6, 160, 0.18);  --hlStrong: rgba(212, 6, 160, 0.3); }
+td.col-part_no    { --hl: rgba(247, 85, 85, 0.18); --hlStrong: rgba(247, 85, 85, 0.3); }
+td.col-brand      { --hl: rgba(245,158,11,.18); --hlStrong: rgba(245,158,11,.30); }
+td.col-quantity   { --hl: rgba(45, 34, 197, 0.18);  --hlStrong: rgba(45,34,197,0.30); }
+td.col-unit_price { --hl: rgba(233, 13, 215, 0.18);  --hlStrong: rgba(233, 13, 215, 0.30); }
+
+td.cell-wrap::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background: transparent;
+    pointer-events: none;
+}
+
+td.cell-wrap.cell-active::before {
+    background: var(--hlStrong);
+    outline: 3px solid rgba(15,23,42,.25);
+    outline-offset: -3px;
+}
+
+td.cell-wrap.cell-reviewed-step::before {
+    background: var(--hl);
+}
+
+tr.row-reviewed td.cell-wrap::before {
+    background: rgba(16,185,129,.12);
+}
+
+/* Additional review indicators */
+.cell-need-confirm { outline: 2px solid #ff9800; border-radius: 8px; }
+.row-needs-confirm { background: rgba(255, 152, 0, 0.07); }
+.cell-msg {
+    margin-top: 6px;
+    padding: 8px;
+    border-radius: 10px;
+    background: rgba(255, 152, 0, 0.12);
+    font-size: 12px;
+    line-height: 1.25;
+    max-width: 260px;
+    overflow-wrap: anywhere;
+}
+.msg-actions { margin-top: 6px; display:flex; gap:8px; flex-wrap:wrap; }
+.mini-btn { font-size: 12px; padding: 4px 10px; border-radius: 8px; cursor:pointer; }
+
+/* =============================================
+   MOBILE STACKED LAYOUT – Clean Card Design
+   ============================================= */
+/* ✅ ADDED: Complete mobile responsive table layout */
+@media (max-width: 600px) {
+  /* Convert table to card layout */
+  #result_table,
+  #result_table thead,
+  #result_table tbody,
+  #result_table tr,
+  #result_table td,
+  #result_table th {
+    display: block;
+  }
+
+  #result_table thead {
+    display: none;
+  }
+
+  /* Each row becomes a card */
+  #result_table tr {
+    margin-bottom: 20px;
+    background: white;
+    border-radius: 12px;
+    border: 1px solid var(--color-border);
+    /* ✅ REMOVED: border-left: 5px solid var(--color-primary); */
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Each cell becomes a label + input row */
+  #result_table td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid #f1f5f9;
+    background: transparent !important;
+    gap: 12px;
+  }
+
+  #result_table td:last-child {
+    border-bottom: none;
+    background: #f8fafc !important;
+  }
+
+  /* Create labels using ::before */
+  #result_table td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: var(--color-label);
+    font-size: 14px;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  /* Fallback labels if data-label not present */
+  #result_table td:nth-of-type(1):not([data-label])::before { content: "Item name:"; }
+  #result_table td:nth-of-type(2):not([data-label])::before { content: "Part No.:"; }
+  #result_table td:nth-of-type(3):not([data-label])::before { content: "Brand:"; }
+  #result_table td:nth-of-type(4):not([data-label])::before { content: "Quantity:"; }
+  #result_table td:nth-of-type(5):not([data-label])::before { content: "Unit price:"; }
+  #result_table td:nth-of-type(6):not([data-label])::before { content: "Total:"; }
+
+  /* Style inputs inside cells */
+  #result_table td input,
+  #result_table td .ocr-input {
+    flex: 1;
+    width: 100%;
+    max-width: 140px;
+    padding: 10px 12px;
+    font-size: 15px;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    background: var(--color-bg-input);
+    color: var(--color-text);
+    font-weight: 500;
+    text-align: left;
+    box-sizing: border-box;
+  }
+
+  #result_table td input:focus,
+  #result_table td .ocr-input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+  }
+
+  /* ✅ FIXED: Total field - centered and more visible */
+  #result_table td:nth-of-type(6) {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px;
+    background: #f1f5f9 !important;
+  }
+
+  #result_table td:nth-of-type(6)::before {
+    font-size: 15px;
+    color: var(--color-heading);
+  }
+
+  #result_table td:nth-of-type(6) input,
+  #result_table td:nth-of-type(6) .ocr-input {
+    background: transparent;
+    border: none;
+    font-weight: 700;
+    font-size: 17px;
+    color: var(--color-primary);
+    text-align: right;
+    padding: 0;
+    max-width: none;
+    flex: 1;
+  }
+
+  /* Review badge */
+  td .review-badge {
+    position: static;
+    margin-right: 6px;
+    font-size: 14px;
+  }
+
+  /* Cell wrap for review mode */
+  td.cell-wrap {
+    display: flex !important;
+    align-items: center;
+    justify-content: space-between;
+    position: relative;
+  }
+
+  td.cell-wrap .ocr-input {
+    flex: 1;
+    max-width: 140px;
+  }
+
+  /* Toolbar */
+  .table-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    padding: 16px;
+    background: white;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .toolbar-left,
+  .toolbar-right {
+    flex-direction: column;
+    width: 100%;
+    gap: 10px;
+  }
+
+  #review_mode_btn,
+  #add_row_btn,
+  #approve_btn {
+    width: 100%;
+    justify-content: center;
+    margin: 0;
+    padding: 14px 18px;
+    font-size: 15px;
+    border-radius: 12px;
+  }
+
+  /* Warning message */
+  #review_warning {
+    margin: 12px 16px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    font-size: 14px;
+  }
+
+  /* Loader */
+  #loader > .loader-text {
+    font-size: 14px;
+    padding: 0 16px;
+  }
+
+  #table_section {
+    overflow-x: hidden;
+    max-height: none;
+  }
+
+  /* Field states */
+  .ocr-input.missing {
+    border: 2px solid #ef4444;
+    background: #fff1f2;
+  }
+
+  .ocr-input.required {
+    border-color: #cbd5e1;
+  }
+}
+
+/* Smaller screens */
+/* ✅ ADDED: Extra adjustments for very small screens */
+@media (max-width: 400px) {
+  #result_table td {
+    padding: 10px 14px;
+    font-size: 14px;
+  }
+
+  #result_table td input,
+  #result_table td .ocr-input {
+    padding: 8px 10px;
+    font-size: 14px;
+    max-width: 110px;
+  }
+
+  #result_table td::before {
+    font-size: 13px;
+  }
+  
+  /* Adjust Total for smaller screens */
+  #result_table td:nth-of-type(6) {
+    padding: 14px;
+  }
+  
+  #result_table td:nth-of-type(6) input,
+  #result_table td:nth-of-type(6) .ocr-input {
+    font-size: 15px;
+  }
+} 
+
+/* =============================================
+   LOW STOCK TABLE – fully responsive, no horizontal scroll
+============================================= */
+#notification .table-wrap {
+    width: 100%;
+    margin-top: 14px;
+    border-radius: 12px;
+    border: 1px solid var(--color-border);
+    background: #fff;
+}
+
+#low_stock {
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff;
+    table-layout: auto;
+}
+
+#low_stock thead th {
+    background: var(--color-primary);
+    color: #fff;
+    padding: 10px 8px;
+    font-weight: 800;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    text-align: center;
+    border: 1px solid rgba(255,255,255,.25);
+    white-space: normal;
+}
+
+#low_stock tbody td {
+    padding: 10px 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-heading);
+    text-align: center;
+    border: 1px solid var(--color-border);
+    white-space: normal;
+    word-break: break-word;
+}
+
+#low_stock tbody tr:nth-child(even) td {
+    background: #f9fafb;
+}
+
+#low_stock tbody tr:hover td {
+    background: #eef2ff;
+}
+
+#low_stock .num {
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 480px) {
+    #low_stock thead th { padding: 8px 4px; font-size: 11px; }
+    #low_stock tbody td { padding: 8px 4px; font-size: 12px; }
+}
+
+/* =============================================
+   DASHBOARD CARDS – unique accent colors, equal spacing
+============================================= */
+
+/* Shared card styles */
+#notification,
+#charts,
+#montly-chart,
+#yearly-chart {
+    font-family: var(--font-sans);
+    box-sizing: border-box;
+    margin-bottom: 20px;
+}
+
+#notification .dash-card,
+#charts .dash-card,
+#montly-chart.dash-card,
+#yearly-chart.dash-card {
+    border-radius: 14px;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.07);
+    transition: box-shadow 0.25s ease, transform 0.15s ease;
+    padding: 16px;
+}
+
+/* Card backgrounds already set at top with gradients */
+
+/* Card titles */
+#notification .dash-title,
+#charts .dash-title,
+#montly-chart .dash-title,
+#yearly-chart .dash-title {
+    margin: 0 0 8px 0;
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--color-heading);
+    letter-spacing: -0.2px;
+}
+
+#notification .dash-subtitle,
+#charts .dash-subtitle {
+    margin: 0 0 12px 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-label);
+}
+
+/* Charts layout */
+#charts {
+    margin-top: 0;
+}
+
+#charts .charts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    align-items: stretch;
+}
+
+@media (max-width: 900px) {
+    #charts .charts-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+#charts .card-head,
+#montly-chart .card-head,
+#yearly-chart .card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--color-border);
+    margin-bottom: 12px;
+}
+
+#charts .card-meta,
+#montly-chart .card-meta,
+#yearly-chart .card-meta {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--color-label);
+    white-space: nowrap;
+}
+
+#charts .chart-box,
+#montly-chart .chart-box,
+#yearly-chart .chart-box {
+    position: relative;
+    width: 100%;
+    height: 260px;
+}
+
+@media (max-width: 1100px) {
+    #charts .chart-box,
+    #montly-chart .chart-box,
+    #yearly-chart .chart-box {
+        height: 240px;
+    }
+}
+
+@media (max-width: 500px) {
+    #charts .dash-card { padding: 14px; }
+    #charts .chart-box,
+    #montly-chart .chart-box,
+    #yearly-chart .chart-box {
+        height: 210px;
+    }
+    #notification .dash-card { padding: 14px; }
+    #notification .dash-title { font-size: 16px; }
+    #charts .dash-title { font-size: 16px; }
+}
+
+#charts canvas,
+#montly-chart canvas,
+#yearly-chart canvas {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+#montly-chart,
+#yearly-chart {
+    margin-top: 0;
+}
+
+/* ============================
+   DEBT MANAGEMENT – Compact & Scrollable
+============================= */
+
+#debt_section {
+    /* keep your original gradient and border */
+    background: #ffffff;
+    background: linear-gradient(to right, #ffffff, #f3e8ff);
+    border-left: 6px solid #8b5cf6;
+    padding: 20px;
+    border-radius: 14px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.07);
+    margin-bottom: 20px;
+    max-height: 520px;         /* approx. one card + form height */
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+#debt_section h2 {
+    margin-top: 0;
+    color: var(--color-heading);
+}
+
+/* Add debtor form – neat, labelled */
+.debt-form fieldset {
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+    background: #f8fafc;
+}
+
+.debt-form legend {
+    font-weight: 700;
+    color: var(--color-heading);
+    padding: 0 8px;
+}
+
+.debt-form .form-group {
+    margin-bottom: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.debt-form label {
+    width: 130px;
+    font-weight: 600;
+    color: var(--color-label);
+}
+
+.debt-form input,
+.debt-form select {
+    flex: 1;
+    min-width: 180px;
+    padding: 8px;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    font-size: 14px;
+}
+
+/* Debtor card – now takes almost full container height */
+.debtor-card {
+    background: white;
+    border: 1px solid var(--color-border);
+    border-radius: 14px;
+    padding: 18px;
+    margin-bottom: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    max-height: 420px;              /* card won't grow beyond container */
+    overflow-y: auto;               /* if card itself becomes too tall, it scrolls */
+    display: flex;
+    flex-direction: column;
+}
+
+/* Summary row */
+.debtor-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+
+.debtor-name {
+    font-weight: 700;
+    color: var(--color-heading);
+    font-size: 16px;
+}
+
+.debtor-balance {
+    font-weight: 700;
+    font-size: 16px;
+}
+
+/* Cleared balance – green */
+.balance-cleared {
+    color: #10b981;
+}
+
+/* Details always visible */
+.debtor-details {
+    flex: 1;
+    overflow-y: auto;
+    font-size: 14px;
+}
+
+.debtor-details ul {
+    list-style: none;
+    padding: 0;
+    margin: 6px 0;
+}
+
+.debtor-details ul li {
+    padding: 4px 0;
+    border-bottom: 1px dashed var(--color-border);
+    display: flex;
+    justify-content: space-between;
+}
+
+.countdown {
+    font-weight: 600;
+    color: #d97706;
+    margin: 6px 0;
+}
+
+.ledger table {
+    width: 100%;
+    font-size: 13px;
+    border-collapse: collapse;
+    margin: 6px 0;
+}
+
+.ledger th, .ledger td {
+    text-align: left;
+    padding: 4px 6px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+}
+
+.inline-form {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-top: 8px;
+}
+
+.inline-form input {
+    padding: 6px 8px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    font-size: 13px;
+    width: 100px;
+}
+
+/* Buttons (keep your original colours) */
+.debtor-card button.btn.primary { background: var(--color-primary); color: white; }
+.debtor-card button.btn.primary:hover { background: var(--color-primary-hover); }
+.debtor-card button.btn.secondary { background: #f59e0b; color: white; }
+.debtor-card button.btn.secondary:hover { background: #d97706; }
+/* ============================
+   CLEAN MODERN DEBT FORM
+============================= */
+
+.debt-form fieldset {
+    border: none;
+    border-radius: 18px;
+    padding: 26px;
+    background: #ffffff;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.06);
+}
+
+/* Title */
+.debt-form legend {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 16px;
+    color: #111827;
+}
+
+/* EACH FIELD BECOMES A BLOCK */
+.debt-form .form-group {
+    margin-bottom: 16px;
+}
+
+/* LABELS SIMPLE & CLEAR */
+.debt-form label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: #374151;
+}
+
+/* INPUTS CLEAN */
+.debt-form input,
+.debt-form select {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    background: #f9fafb;
+    font-size: 14px;
+    transition: 0.2s ease;
+}
+
+.debt-form input:focus,
+.debt-form select:focus {
+    outline: none;
+    border-color: #2563eb;
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.15);
+}
+
+/* ============================
+   ITEMS TABLE SIMPLIFIED
+============================= */
+
+.inline-items-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+}
+
+.inline-items-table th {
+    text-align: left;
+    padding: 10px;
+    font-size: 12px;
+    background: #f3f4f6;
+    color: #374151;
+}
+
+.inline-items-table td {
+    padding: 8px;
+    border-top: 1px solid #eee;
+}
+
+.inline-items-table input {
+    width: 100%;
+    padding: 8px;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+    font-size: 13px;
+}
+
+/* Remove button */
+.remove_row_btn {
+    background: transparent;
+    border: none;
+    color: #ef4444;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+/* ============================
+   BUTTON LAYOUT FIXED
+============================= */
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 18px;
+}
+
+#add_item_row_btn {
+    margin-top: 10px;
+    padding: 10px 14px;
+    background: #eff6ff;
+    color: #2563eb;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+}
+
+#add_item_row_btn:hover {
+    background: #dbeafe;
+}
+
+.btn.primary {
+    padding: 12px 18px;
+    background: #2563eb;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.btn.primary:hover {
+    background: #1d4ed8;
+}
+
+/* =============================================
+   DEBT SECTION – MOBILE RESPONSIVE
+   ============================================= */
+/* ✅ ADDED: Complete mobile responsive debt management section */
+@media (max-width: 600px) {
+  
+  /* ===== Debt Section Container ===== */
+  #debt_section {
+    padding: 16px;
+    max-height: none;
+    overflow: visible;
+  }
+  
+  #debt_section h2 {
+    font-size: 20px;
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  
+  /* ===== Debt Form – Stack Labels & Inputs ===== */
+  .debt-form fieldset {
+    padding: 20px 16px;
+    border-radius: 14px;
+  }
+  
+  .debt-form legend {
+    font-size: 18px;
+    text-align: center;
+    width: 100%;
+    padding: 0 0 12px 0;
+    border-bottom: 1px solid var(--color-border);
+    margin-bottom: 16px;
+  }
+  
+  /* Make form groups stack vertically */
+  .debt-form .form-group {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+  
+  /* Labels full-width, no fixed width */
+  .debt-form label {
+    width: 100%;
+    font-size: 14px;
+    margin-bottom: 4px;
+  }
+  
+  /* Inputs full-width with larger touch targets */
+  .debt-form input,
+  .debt-form select {
+    width: 100%;
+    min-width: 100%;
+    padding: 12px 14px;
+    font-size: 16px; /* Prevents iOS zoom */
+    min-height: 44px;
+  }
+  
+  /* ===== Inline Items Table – Mobile Scroll ===== */
+  /* ✅ ADDED: Horizontal scroll wrapper for debt items table */
+  .inline-items-table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 10px;
+    margin-top: 8px;
+    min-width: 480px; /* Forces horizontal scroll on small screens */
+  }
+  
+  .inline-items-table th,
+  .inline-items-table td {
+    padding: 10px 8px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+  
+  .inline-items-table input {
+    width: 100px;
+    min-width: 80px;
+    padding: 8px 10px;
+    font-size: 14px;
+  }
+  
+  /* Remove button – larger touch target */
+  .remove_row_btn {
+    font-size: 18px;
+    padding: 6px 10px;
+    min-width: 36px;
+    min-height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  /* Add Item Row Button – full width */
+  #add_item_row_btn {
+    width: 100%;
+    margin-top: 12px;
+    padding: 12px;
+    font-size: 15px;
+  }
+  
+  /* ===== Form Actions – Stack Buttons ===== */
+  .form-actions,
+  .debt-form .form-group:last-child {
+    flex-direction: column;
+    width: 100%;
+  }
+  
+  .debt-form button[type="submit"],
+  .btn.primary {
+    width: 100%;
+    padding: 14px 18px;
+    font-size: 16px;
+    min-height: 48px;
+    margin-top: 8px;
+  }
+  
+  /* ===== Debtor Cards – Mobile Optimized ===== */
+  .debtor-card {
+    padding: 16px;
+    margin-bottom: 16px;
+    max-height: none;
+    overflow: visible;
+  }
+  
+  .debtor-summary {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--color-border);
+  }
+  
+  .debtor-name {
+    font-size: 17px;
+  }
+  
+  .debtor-balance {
+    font-size: 18px;
+  }
+  
+  .debtor-details {
+    font-size: 14px;
+    padding: 12px 0;
+  }
+  
+  .debtor-details ul li {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    padding: 8px 0;
+  }
+  
+  /* Ledger table mobile scroll */
+  .ledger table {
+    display: block;
+    overflow-x: auto;
+    font-size: 12px;
+  }
+  
+  .ledger th,
+  .ledger td {
+    padding: 6px 8px;
+    white-space: nowrap;
+  }
+  
+  /* Action buttons stack on mobile */
+  .actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .actions button,
+  .debtor-card button {
+    width: 100%;
+    padding: 10px 14px;
+    font-size: 14px;
+    min-height: 44px;
+  }
+  
+  /* Inline form for payments – stack inputs */
+  .inline-form {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  
+  .inline-form input {
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 15px;
+  }
+  
+  /* Countdown text */
+  .countdown {
+    font-size: 14px;
+    margin: 8px 0;
+  }
+}
+
+/* Tiny screens (<360px) – extra adjustments */
+/* ✅ ADDED: Extra adjustments for very small screens */
+@media (max-width: 360px) {
+  .debt-form legend {
+    font-size: 16px;
+  }
+  
+  .inline-items-table input {
+    width: 80px;
+    font-size: 13px;
+  }
+  
+  .debtor-name,
+  .debtor-balance {
+    font-size: 16px;
+  }
+  
+  .ledger th,
+  .ledger td {
+    padding: 4px 6px;
+    font-size: 11px;
+  }
+}
+
+/* Landscape mobile – limit height for scrolling */
+/* ✅ ADDED: Landscape orientation handling for debt section */
+@media (max-height: 500px) and (orientation: landscape) and (max-width: 600px) {
+  #debt_section {
+    max-height: 70vh;
+    overflow-y: auto;
+  }
+  
+  .debtor-card {
+    max-height: 50vh;
+    overflow-y: auto;
+  }
+}
+
+/* =============================================
+   FINAL RESPONSIVE POLISH – Prevent Overlaps
+   ============================================= */
+/* ✅ ADDED: Final responsive utilities for edge cases */
+
+/* Prevent text overflow in cards */
+#result_table td,
+#result_table td .ocr-input {
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  word-break: break-word;
+}
+
+/* Ensure inputs are touch-friendly on mobile */
+@media (max-width: 600px) {
+  /* Larger touch targets (Apple HIG: 44x44px minimum) */
+  #result_table td input,
+  #result_table td .ocr-input,
+  #review_mode_btn,
+  #add_row_btn,
+  #approve_btn {
+    min-height: 44px;
+  }
+  
+  /* Prevent zoom on input focus (iOS requires 16px+) */
+  input, select, textarea, .ocr-input {
+    font-size: 16px !important;
+  }
+  
+  /* Ensure cards don't overflow horizontally */
+  #result_table tr {
+    max-width: 100vw;
+    box-sizing: border-box;
+  }
+  
+  /* Fix for long text in labels */
+  #result_table td::before {
+    max-width: 45%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  /* Ensure toolbar buttons don't wrap awkwardly */
+  .table-toolbar {
+    padding: 12px;
+  }
+  
+  /* Camera modal responsive */
+  #camera_modal {
+    padding: 8px;
+  }
+  
+  #camera_modal > div {
+    width: 100% !important;
+    max-width: 100%;
+    padding: 10px;
+  }
+  
+  #cam_video {
+    max-height: 40vh;
+    object-fit: contain;
+  }
+}
+
+/* Small phones (under 360px wide) */
+/* ✅ ADDED: Extra tiny screen handling */
+@media (max-width: 360px) {
+  #result_table td {
+    padding: 10px 12px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  #result_table td::before {
+    width: 100%;
+    margin-bottom: 4px;
+    font-size: 13px;
+  }
+  
+  #result_table td input,
+  #result_table td .ocr-input {
+    width: 100%;
+    max-width: 100%;
+    font-size: 15px;
+  }
+  
+  /* Total field on tiny screens */
+  #result_table td:nth-of-type(6) {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 14px;
+  }
+  
+  #result_table td:nth-of-type(6)::before {
+    width: 100%;
+  }
+  
+  #result_table td:nth-of-type(6) input,
+  #result_table td:nth-of-type(6) .ocr-input {
+    text-align: left;
+    width: 100%;
+  }
+}
+
+/* Landscape mobile handling */
+/* ✅ ADDED: Landscape mode for table section */
+@media (max-height: 500px) and (orientation: landscape) {
+  #table_section {
+    max-height: 60vh;
+    overflow-y: auto;
+  }
+  
+  #result_table tr {
+    margin-bottom: 12px;
+  }
+  
+  #result_table td {
+    padding: 8px 12px;
+    min-height: 44px;
+  }
+}
+
+/* Prevent layout shift when keyboard opens (mobile) */
+/* ✅ ADDED: Safe area padding for notched phones */
+@media (max-width: 600px) {
+  body {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  #table_section {
+    padding-bottom: 20px;
+  }
+}
+
+/* High-DPI / Retina display polish */
+/* ✅ ADDED: Retina display shadow adjustments */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  #result_table tr {
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  }
+  
+  .ocr-input {
+    border-width: 1px;
+  }
+}
