@@ -1,16 +1,17 @@
 import { BUSINESS_ID as B } from "../config";
-import { DAY, HR, startOfDay, type AuditEntry, type Movement, type Payment, type Product, type Sale, type SaleItem, type StockCount } from "./engine";
+import { DAY, HR, startOfDay, type AuditEntry, type Category, type Movement, type Payment, type Product, type Sale, type SaleItem, type StockCount } from "./engine";
 
-// id, name, sku, cost, price, min, avg units/day, target stock today
-const RAW: [number, string, string, number, number, number, number, number][] = [
-  [1, "Coca-Cola 500ml", "COKE500", 45, 60, 15, 6, 8], [2, "Milk 500ml", "MILK500", 52, 70, 12, 5, 5],
-  [3, "Sugar 1kg", "SUGAR1", 150, 180, 10, 2, 29], [4, "Bread 400g", "BREAD400", 50, 65, 10, 6, 22],
-  [5, "Cooking Oil 1L", "OIL1L", 260, 310, 8, 2, 14], [6, "Rice 2kg", "RICE2", 290, 340, 8, 1.5, 18],
-  [7, "Maize Flour 2kg", "FLOUR2", 120, 145, 12, 3, 40], [8, "Soap Bar", "SOAP", 60, 80, 10, 0, 30],
-  [9, "Biscuits Pack", "BISC", 35, 50, 15, 0, 26], [10, "Tea Leaves 250g", "TEA250", 95, 120, 8, 1.5, 9],
+// id, name, sku, cost, price, min, avg units/day, target stock today, category, unit
+const RAW: [string, string, string, number, number, number, number, number, string, string][] = [
+  ["p1", "Coca-Cola 500ml", "COKE500", 45, 60, 15, 6, 8, "c-bev", "bottle"], ["p2", "Milk 500ml", "MILK500", 52, 70, 12, 5, 5, "c-dairy", "pack"],
+  ["p3", "Sugar 1kg", "SUGAR1", 150, 180, 10, 2, 29, "c-groc", "pack"], ["p4", "Bread 400g", "BREAD400", 50, 65, 10, 6, 22, "c-bake", "piece"],
+  ["p5", "Cooking Oil 1L", "OIL1L", 260, 310, 8, 2, 14, "c-groc", "bottle"], ["p6", "Rice 2kg", "RICE2", 290, 340, 8, 1.5, 18, "c-groc", "pack"],
+  ["p7", "Maize Flour 2kg", "FLOUR2", 120, 145, 12, 3, 40, "c-groc", "pack"], ["p8", "Soap Bar", "SOAP", 60, 80, 10, 0, 30, "c-home", "piece"],
+  ["p9", "Biscuits Pack", "BISC", 35, 50, 15, 0, 26, "c-snack", "pack"], ["p10", "Tea Leaves 250g", "TEA250", 95, 120, 8, 1.5, 9, "c-bev", "pack"],
 ];
+const CATEGORIES: [string, string][] = [["c-bev", "Beverages"], ["c-dairy", "Dairy"], ["c-bake", "Bakery"], ["c-groc", "Groceries"], ["c-home", "Household"], ["c-snack", "Snacks"]];
 const STAFF = ["James", "Mary", "Brian"];
-export interface SeedData { products: Product[]; movements: Movement[]; sales: Sale[]; saleItems: SaleItem[]; counts: StockCount[]; audit: AuditEntry[] }
+export interface SeedData { categories: Category[]; products: Product[]; movements: Movement[]; sales: Sale[]; saleItems: SaleItem[]; counts: StockCount[]; audit: AuditEntry[] }
 
 export function seed(now = Date.now()): SeedData {
   let s = 7;
@@ -18,12 +19,13 @@ export function seed(now = Date.now()): SeedData {
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
   const pick = () => STAFF[Math.floor(rnd() * 3)];
   const t0 = startOfDay(now);
-  const products: Product[] = RAW.map(([id, name, sku, cost, price, min]) => ({ id, businessId: B, name, sku, cost, price, min }));
+  const categories: Category[] = CATEGORIES.map(([id, name]) => ({ id, businessId: B, name }));
+  const products: Product[] = RAW.map(([id, name, sku, cost, price, min, , , categoryId, unit]) => ({ id, businessId: B, name, sku, categoryId, unit, cost, price, min, archived: false, createdAt: t0 - 60 * DAY, updatedAt: t0 - 60 * DAY }));
   const M: Movement[] = [], drafts: { ts: number; staff: string; payment: Payment; lines: { p: Product; qty: number }[] }[] = [];
-  const mv = (productId: number, type: Movement["type"], qty: number, ts: number, staff: string, refId?: string, reason?: string) =>
+  const mv = (productId: string, type: Movement["type"], qty: number, ts: number, staff: string, refId?: string, reason?: string) =>
     M.push({ businessId: B, productId, type, qty, ts, staff, refId, reason });
   // Coca-Cola cost KES 55 more than a week ago: shows that sales keep the price they were made at
-  const priceAt = (p: Product, d: number) => (p.id === 1 && d > 7 ? 55 : p.price);
+  const priceAt = (p: Product, d: number) => (p.id === "p1" && d > 7 ? 55 : p.price);
 
   for (let d = 13; d >= 0; d--) {
     const k = d === 0 ? 3 : 4, baskets = Array.from({ length: k }, () => [] as { p: Product; qty: number }[]);
@@ -49,15 +51,15 @@ export function seed(now = Date.now()): SeedData {
   });
 
   const counts: StockCount[] = [], audit: AuditEntry[] = [];
-  const count = (id: string, productId: number, diff: number, ts: number, staff: string, reason: string) => {
+  const count = (id: string, productId: string, diff: number, ts: number, staff: string, reason: string) => {
     counts.push({ id, businessId: B, ts, staff, productId, expected: 0, counted: 0, diff, reason });
     mv(productId, "count", diff, ts, staff, id, reason);
-    audit.push({ businessId: B, ts, staff, action: "stock.counted", entity: "product", entityId: String(productId), newValue: String(diff) });
+    audit.push({ businessId: B, ts, staff, action: "stock.counted", entity: "product", entityId: productId, newValue: String(diff) });
   };
-  mv(2, "purchase", 50, Math.max(t0 + 6e4, now - 3 * HR), "Mary");
-  mv(3, "adjustment", -2, t0 - DAY + 10 * HR, "James", undefined, "Damaged");
-  count("seed-count-1", 3, -6, t0 - 2 * DAY + 17 * HR, "Mary", "Missing");
-  count("seed-count-2", 6, -3, t0 - 2 * DAY + 17.5 * HR, "Brian", "Counting correction");
+  mv("p2", "purchase", 50, Math.max(t0 + 6e4, now - 3 * HR), "Mary");
+  mv("p3", "adjustment", -2, t0 - DAY + 10 * HR, "James", undefined, "Damaged");
+  count("seed-count-1", "p3", -6, t0 - 2 * DAY + 17 * HR, "Mary", "Missing");
+  count("seed-count-2", "p6", -3, t0 - 2 * DAY + 17.5 * HR, "Brian", "Counting correction");
   for (const [id, , , , , , , target] of RAW) {
     const have = M.filter((m) => m.productId === id).reduce((a, m) => a + m.qty, 0);
     mv(id, "purchase", Math.max(1, target - have), t0 - 50 * DAY, "Mary");
@@ -67,5 +69,5 @@ export function seed(now = Date.now()): SeedData {
     const before = M.filter((m) => m.productId === c.productId && m.ts < c.ts).reduce((a, m) => a + m.qty, 0);
     c.expected = before; c.counted = before + c.diff;
   }
-  return { products, movements: M, sales, saleItems, counts, audit };
+  return { categories, products, movements: M, sales, saleItems, counts, audit };
 }

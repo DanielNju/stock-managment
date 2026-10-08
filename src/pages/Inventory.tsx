@@ -11,7 +11,7 @@ const ORDER = { out: 0, low: 1, ok: 2 } as const;
 
 export default function Inventory() {
   const { state, recordCount } = useOutletContext<StockCtx>();
-  const [open, setOpen] = useState<number | null>(null);
+  const [open, setOpen] = useState<string | null>(null);
   const [val, setVal] = useState("");
   const [reason, setReason] = useState("");
   const [errors, setErrors] = useState<string[]>([]);
@@ -19,14 +19,14 @@ export default function Inventory() {
   const inv = useMemo(() => (state ? inventory(state.P, state.M, new Set(state.S.filter((s) => s.status === "cancelled").map((s) => s.id))) : []), [state]);
   if (!state) return <p className="text-muted">Loading inventory…</p>;
   const name = new Map(state.P.map((p) => [p.id, p.name]));
-  const rows = [...inv].sort((a, b) => ORDER[a.status] - ORDER[b.status] || a.name.localeCompare(b.name));
+  const rows = inv.filter((i) => !i.archived).sort((a, b) => ORDER[a.status] - ORDER[b.status] || a.name.localeCompare(b.name));
   const counts = [...state.C].sort((a, b) => b.ts - a.ts).slice(0, 8);
 
-  const start = (id: number) => { setOpen(open === id ? null : id); setVal(""); setReason(""); setErrors([]); setMsg(""); };
-  const confirm = async (id: number) => {
+  const start = (id: string) => { setOpen(open === id ? null : id); setVal(""); setReason(""); setErrors([]); setMsg(""); };
+  const confirm = async (id: string) => {
     const r = await recordCount(id, val.trim() === "" ? NaN : Number(val), reason);
     if (!r.ok) { setErrors(r.errors); return; }
-    setMsg(r.value.diff === 0 ? "Count matches. Nothing to adjust." : `Stock adjusted by ${r.value.diff > 0 ? "+" : "−"}${Math.abs(r.value.diff)}.`);
+    setMsg(r.value.count.diff === 0 ? "Count matches. Nothing to adjust." : `Stock adjusted by ${r.value.count.diff > 0 ? "+" : "−"}${Math.abs(r.value.count.diff)}.`);
     setOpen(null); setErrors([]);
   };
 
