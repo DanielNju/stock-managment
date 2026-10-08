@@ -16,7 +16,7 @@ function Metric({ label, value, sub, onClick }: { label: string; value: string; 
 export default function Dashboard() {
   const { state } = useOutletContext<StockCtx>();
   const nav = useNavigate();
-  const d = useMemo(() => (state ? dashboard(state.P, state.M, state.S, state.SI, state.C) : null), [state]);
+  const d = useMemo(() => (state ? dashboard(state.P, state.M, state.S, state.SI, state.C, { PU: state.PU, PI: state.PI, RC: state.RC, RI: state.RI }) : null), [state]);
   if (!d) return <p className="text-muted">Loading your shop…</p>;
   const h = new Date().getHours();
   const greeting = h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
@@ -50,12 +50,12 @@ export default function Dashboard() {
         </Card>
         <Card>
           <h2 className="mb-3 text-lg font-semibold">Needs attention</h2>
-          {!d.low.length && !d.issues.length && !d.slow.length && <p className="text-sm text-muted">All clear. Nothing needs your attention right now.</p>}
+          {!d.low.length && !d.issues.length && !d.slow.length && !d.awaiting && <p className="text-sm text-muted">All clear. Nothing needs your attention right now.</p>}
           <ul className="divide-y divide-line">
             {d.low.slice(0, 3).map((i) => (
               <li key={`l${i.id}`} className="flex items-center justify-between gap-2 py-3">
                 <div><Badge tone="bad"><AlertTriangle size={14} />{i.status === "out" ? "Out" : "Low"}</Badge><p className="mt-1 font-medium">{i.name}</p></div>
-                <span className="text-right text-sm text-muted">{i.stock} left<br />min {i.min}</span>
+                <span className="text-right text-sm text-muted">{i.stock} left<br />{d.onOrder.get(i.id) ? `${d.onOrder.get(i.id)} on order` : `min ${i.min}`}</span>
               </li>
             ))}
             {d.issues.map((m) => (
@@ -64,6 +64,12 @@ export default function Dashboard() {
                 <span className="text-right text-sm text-muted">{m.short} short{m.reason ? `, ${m.reason.toLowerCase()}` : ""}<br />{m.staff}, {when(m.ts)}</span>
               </li>
             ))}
+            {d.awaiting > 0 && (
+              <li className="flex items-center justify-between gap-2 py-3">
+                <div><Badge tone="muted">On order</Badge><p className="mt-1 font-medium">{d.awaiting} {d.awaiting === 1 ? "purchase" : "purchases"} awaiting delivery</p></div>
+                <button onClick={() => nav("/purchases")} className="min-h-11 text-right text-sm font-semibold text-pdark">{kes(d.awaitingValue)}<br />View</button>
+              </li>
+            )}
             {d.slow.length > 0 && (
               <li className="flex items-center justify-between gap-2 py-3">
                 <div><Badge tone="muted">Slow</Badge><p className="mt-1 font-medium">{d.slow.length} products haven't sold in 30+ days</p></div>

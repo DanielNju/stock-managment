@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildArchive, buildCancel, buildCategoryDelete, buildCategoryRename, buildCategoryCreate, buildCount, buildProductCreate, buildProductDelete, buildProductUpdate, buildSale, inventory, validateProduct, type Category, type ProductInput, nextReceiptNo, salesOn, startOfDay, type Movement, type Product, type Sale } from "./engine";
+import { buildPurchaseCancel, buildPurchaseCreate, buildPurchaseOrder, buildPurchaseUpdate, buildReceive, buildSupplierArchive, buildSupplierCreate, buildSupplierDelete, buildSupplierUpdate, nextPurchaseRef, purchaseLines, purchaseStatus, purchaseTotal, supplierStats, validateSupplier, type Purchase, type PurchaseItem, type Receipt, type ReceiptItem, type Supplier, buildArchive, buildCancel, buildCategoryDelete, buildCategoryRename, buildCategoryCreate, buildCount, buildProductCreate, buildProductDelete, buildProductUpdate, buildSale, inventory, validateProduct, type Category, type ProductInput, nextReceiptNo, salesOn, startOfDay, type Movement, type Product, type Sale } from "./engine";
 
 const B = "t";
 const base0 = { businessId: B, unit: "piece", archived: false, createdAt: 0, updatedAt: 0 };
@@ -153,5 +153,129 @@ describe("categories", () => {
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.errors[0]).toContain("still uses");
     expect(buildCategoryDelete({ businessId: B, category: cat, P: [milk], staff: "J", now }).ok).toBe(true);
+  });
+});
+
+describe("suppliers", () => {
+  const sup: Supplier = { id: "s1", businessId: B, name: "Sunrise Bakers", archived: false, createdAt: 0, updatedAt: 0 };
+  it("needs a unique name and valid contact details", () => {
+    expect(validateSupplier({ name: " " }, [])).not.toEqual([]);
+    expect(validateSupplier({ name: "sunrise bakers" }, [sup]).length).toBe(1);
+    expect(validateSupplier({ name: "Sunrise Bakers" }, [sup], "s1")).toEqual([]);
+    expect(validateSupplier({ name: "A", email: "nope" }, []).length).toBe(1);
+    expect(validateSupplier({ name: "A", phone: "abc" }, []).length).toBe(1);
+    expect(validateSupplier({ name: "A", phone: "+254 700 000 000", email: "a@b.co" }, [])).toEqual([]);
+  });
+  it("can be created, edited and archived", () => {
+    const c = buildSupplierCreate({ businessId: B, id: "s2", input: { name: " Kilimani Dairy " }, SUP: [sup], staff: "J", now });
+    expect(c.ok && c.supplier.name).toBe("Kilimani Dairy");
+    expect(buildSupplierUpdate({ businessId: B, supplier: sup, input: { name: "Sunrise" }, SUP: [sup], staff: "J", now }).ok).toBe(true);
+    expect(buildSupplierArchive({ businessId: B, supplier: sup, archived: true, staff: "J", now }).ok).toBe(true);
+    expect(buildSupplierArchive({ businessId: B, supplier: sup, archived: false, staff: "J", now }).ok).toBe(false);
+  });
+});
+
+describe("purchases", () => {
+  const sup: Supplier = { id: "s1", businessId: B, name: "Sunrise Bakers", archived: false, createdAt: 0, updatedAt: 0 };
+  const P = [milk, coke];
+  const input = { supplierId: "s1", lines: [{ productId: "1", qty: 10, unitCost: 50 }, { productId: "2", qty: 6, unitCost: 44 }] };
+  const make = (status: "draft" | "ordered" = "ordered") => {
+    const r = buildPurchaseCreate({ businessId: B, id: "po1", ref: "PO-1001", input, status, SUP: [sup], P, staff: "J", now });
+    if (!r.ok) throw new Error(r.errors.join());
+    return r;
+  };
+  const state = (RC: Receipt[] = [], RI: ReceiptItem[] = []) => ({ PI: make().purchaseItems, RC, RI });
+  const recv = (id: string, lines: { productId: string; qty: number }[], RC: Receipt[] = [], RI: ReceiptItem[] = [], purchase: Purchase = make().purchase) =>
+    buildReceive({ businessId: B, id, purchase, PI: make().purchaseItems, RC, RI, lines, staff: "M", now });
+
+  it("a draft purchase changes no stock and writes no movements", () => {
+    const d = make("draft");
+    expect(d.movements).toEqual([]);
+    expect(inventory(P, [mv("1", "opening", 3)])[0].stock).toBe(3);
+    expect(purchaseStatus(d.purchase, d.purchaseItems, [], [])).toBe("draft");
+    expect(purchaseTotal(d.purchaseItems)).toBe(10 * 50 + 6 * 44);
+  });
+  it("validates supplier, lines, quantities and costs", () => {
+    const bad = (i: Partial<typeof input>) => buildPurchaseCreate({ businessId: B, id: "x", ref: "PO-1", input: { ...input, ...i }, status: "draft", SUP: [sup], P, staff: "J", now }).ok;
+    expect(bad({ supplierId: "nope" })).toBe(false);
+    expect(bad({ lines: [] })).toBe(false);
+    expect(bad({ lines: [{ productId: "1", qty: 0, unitCost: 5 }] })).toBe(false);
+    expect(bad({ lines: [{ productId: "1", qty: 1.5, unitCost: 5 }] })).toBe(false);
+    expect(bad({ lines: [{ productId: "1", qty: 1, unitCost: -5 }] })).toBe(false);
+    expect(bad({ lines: [{ productId: "1", qty: 1, unitCost: 5 }, { productId: "1", qty: 1, unitCost: 5 }] })).toBe(false);
+    const archived = buildPurchaseCreate({ businessId: B, id: "x", ref: "PO-1", input, status: "draft", SUP: [{ ...sup, archived: true }], P, staff: "J", now });
+    expect(archived.ok).toBe(false);
+  });
+  it("receiving 10 units adds exactly 10", () => {
+    const r = recv("r1", [{ productId: "1", qty: 10 }]);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.movements).toHaveLength(1);
+    expect(inventory(P, r.movements)[0].stock).toBe(10);
+  });
+  it("4 of 10 is partial; the other 6 completes it without double counting", () => {
+    const first = recv("r1", [{ productId: "1", qty: 4 }]);
+    if (!first.ok) throw new Error("setup");
+    const RC = [first.receipt!], RI = first.receiptItems!;
+    const p = make().purchase;
+    expect(purchaseStatus(p, make().purchaseItems, RC, RI)).toBe("partial");
+    expect(purchaseLines(p, make().purchaseItems, RC, RI)[0]).toMatchObject({ received: 4, outstanding: 6 });
+    const second = recv("r2", [{ productId: "1", qty: 6 }, { productId: "2", qty: 6 }], RC, RI);
+    if (!second.ok) throw new Error(second.errors.join());
+    const RC2 = [...RC, second.receipt!], RI2 = [...RI, ...second.receiptItems!];
+    expect(purchaseStatus(p, make().purchaseItems, RC2, RI2)).toBe("received");
+    const stock = inventory(P, [...first.movements, ...second.movements]);
+    expect(stock[0].stock).toBe(10); // not 20
+    expect(stock[1].stock).toBe(6);
+    expect(recv("r3", [{ productId: "1", qty: 1 }], RC2, RI2).ok).toBe(false); // nothing left to receive
+  });
+  it("refuses to receive more than is outstanding, and bad quantities", () => {
+    expect(recv("r1", [{ productId: "1", qty: 11 }]).ok).toBe(false);
+    expect(recv("r1", [{ productId: "1", qty: -1 }]).ok).toBe(false);
+    expect(recv("r1", [{ productId: "1", qty: 1.5 }]).ok).toBe(false);
+    expect(recv("r1", [{ productId: "9", qty: 1 }]).ok).toBe(false);
+    expect(recv("r1", [{ productId: "1", qty: 0 }]).ok).toBe(false); // must receive something
+  });
+  it("receiving a draft marks it ordered; a cancelled purchase can't be received", () => {
+    const d = make("draft").purchase;
+    const r = recv("r1", [{ productId: "1", qty: 1 }], [], [], d);
+    expect(r.ok && r.purchase?.status).toBe("ordered");
+    expect(recv("r1", [{ productId: "1", qty: 1 }], [], [], { ...d, status: "cancelled" }).ok).toBe(false);
+  });
+  it("cancelling is blocked once any stock was received", () => {
+    const p = make().purchase;
+    expect(buildPurchaseCancel({ businessId: B, purchase: p, RC: [], staff: "J", now }).ok).toBe(true);
+    const r = recv("r1", [{ productId: "1", qty: 1 }]);
+    if (!r.ok) throw new Error("setup");
+    const blocked = buildPurchaseCancel({ businessId: B, purchase: p, RC: [r.receipt!], staff: "J", now });
+    expect(blocked.ok).toBe(false);
+  });
+  it("only a draft can be edited or ordered", () => {
+    const d = make("draft").purchase, o = make("ordered").purchase;
+    expect(buildPurchaseOrder({ businessId: B, purchase: d, staff: "J", now }).ok).toBe(true);
+    expect(buildPurchaseOrder({ businessId: B, purchase: o, staff: "J", now }).ok).toBe(false);
+    const upd = (p: Purchase) => buildPurchaseUpdate({ businessId: B, purchase: p, input, status: "draft", SUP: [sup], P, RC: [], staff: "J", now }).ok;
+    expect(upd(d)).toBe(true);
+    expect(upd(o)).toBe(false);
+  });
+  it("purchase costs are frozen, so changing a product's cost doesn't touch them", () => {
+    const items = make().purchaseItems;
+    const upd = buildProductUpdate({ businessId: B, product: milk, input: { name: "Milk", sku: "M", unit: "piece", cost: 99, price: 120, min: 5 }, P, C: [], staff: "J", now });
+    expect(upd.ok && upd.product.cost).toBe(99);
+    expect(items[0].unitCost).toBe(50);
+  });
+  it("blocks deleting a supplier with purchases, keeps archived suppliers readable, and totals them", () => {
+    const pu = make();
+    expect(buildSupplierDelete({ businessId: B, supplier: sup, PU: [pu.purchase], staff: "J", now }).ok).toBe(false);
+    expect(buildSupplierDelete({ businessId: B, supplier: sup, PU: [], staff: "J", now }).ok).toBe(true);
+    const r = recv("r1", [{ productId: "1", qty: 4 }]);
+    if (!r.ok) throw new Error("setup");
+    const stats = supplierStats("s1", [pu.purchase], pu.purchaseItems as PurchaseItem[], [r.receipt!], r.receiptItems!);
+    expect(stats).toEqual({ count: 1, ordered: 10 * 50 + 6 * 44, received: 4 * 50 });
+  });
+  it("numbers purchases from the highest reference", () => {
+    const p = (ref: string) => ({ ref }) as Purchase;
+    expect(nextPurchaseRef([])).toBe("PO-1001");
+    expect(nextPurchaseRef([p("PO-1004"), p("PO-1002")])).toBe("PO-1005");
   });
 });

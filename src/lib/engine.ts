@@ -16,6 +16,15 @@ export interface Sale { id: string; businessId: string; receiptNo: string; ts: n
 export interface SaleItem { id?: number; saleId: string; productId: string; qty: number; unitPrice: number; unitCost: number }
 export interface StockCount { id: string; businessId: string; ts: number; staff: string; productId: string; expected: number; counted: number; diff: number; reason: string }
 export interface AuditEntry { id?: number; businessId: string; ts: number; staff: string; action: string; entity: string; entityId: string; oldValue?: string; newValue?: string }
+export interface Supplier { id: string; businessId: string; name: string; contact?: string; phone?: string; email?: string; location?: string; notes?: string; archived: boolean; createdAt: number; updatedAt: number }
+/** Only draft, ordered and cancelled are stored. "Partially received" and "Received" are worked out from the receipts. */
+export type PurchaseBase = "draft" | "ordered" | "cancelled";
+export type PurchaseStatus = "draft" | "ordered" | "partial" | "received" | "cancelled";
+export interface Purchase { id: string; businessId: string; ref: string; supplierId: string; ts: number; staff: string; status: PurchaseBase; note?: string }
+/** unitCost is frozen on the purchase, so a later change to the product's cost never rewrites it. */
+export interface PurchaseItem { id?: number; purchaseId: string; productId: string; qty: number; unitCost: number }
+export interface Receipt { id: string; businessId: string; purchaseId: string; ts: number; staff: string; note?: string }
+export interface ReceiptItem { id?: number; receiptId: string; productId: string; qty: number }
 export interface Line { productId: string; qty: number }
 export interface StockItem extends Product { stock: number; value: number; last: number; status: Status }
 
@@ -29,6 +38,7 @@ export type Fail = { ok: false; errors: string[] };
 export interface Writes {
   sale?: Sale; items?: SaleItem[]; movements: Movement[]; count?: StockCount;
   product?: Product; deleteProductId?: string; category?: Category; deleteCategoryId?: string;
+  supplier?: Supplier; deleteSupplierId?: string; purchase?: Purchase; purchaseItems?: PurchaseItem[]; replaceItemsFor?: string; receipt?: Receipt; receiptItems?: ReceiptItem[];
   audit: AuditEntry[]; voidSaleId?: string;
 }
 
@@ -193,8 +203,145 @@ export function buildCategoryDelete(a: { businessId: string; category: Category;
   return { ok: true, movements: [], deleteCategoryId: a.category.id, audit: [{ businessId: a.businessId, ts: a.now, staff: a.staff, action: "category.deleted", entity: "category", entityId: a.category.id, oldValue: a.category.name }] };
 }
 
+/* ---------------- suppliers ---------------- */
+export interface SupplierInput { name: string; contact?: string; phone?: string; email?: string; location?: string; notes?: string }
+export function validateSupplier(i: SupplierInput, SUP: Supplier[], selfId?: string): string[] {
+  const errs: string[] = [], name = i.name.trim(), email = i.email?.trim(), phone = i.phone?.trim();
+  if (!name) errs.push("Supplier name is required."); else if (name.length > 80) errs.push("Supplier name is too long (80 characters at most).");
+  else if (SUP.some((x) => x.id !== selfId && x.name.toLowerCase() === name.toLowerCase())) errs.push(`A supplier named "${name}" already exists.`);
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errs.push("That email address doesn't look right.");
+  if (phone && !/^[0-9+()\-\s]{6,20}$/.test(phone)) errs.push("Phone numbers can only have digits, spaces, + ( ) and -.");
+  return errs;
+}
+const cleanSupplier = (i: SupplierInput) => ({ name: i.name.trim(), contact: i.contact?.trim() || undefined, phone: i.phone?.trim() || undefined, email: i.email?.trim() || undefined, location: i.location?.trim() || undefined, notes: i.notes?.trim() || undefined });
+const sAudit = (b: string, staff: string, now: number, action: string, id: string, oldValue?: string, newValue?: string): AuditEntry => ({ businessId: b, ts: now, staff, action, entity: "supplier", entityId: id, oldValue, newValue });
+
+export function buildSupplierCreate(a: { businessId: string; id: string; input: SupplierInput; SUP: Supplier[]; staff: string; now: number }): ({ ok: true } & Writes & { supplier: Supplier }) | Fail {
+  const errs = validateSupplier(a.input, a.SUP);
+  if (errs.length) return { ok: false, errors: errs };
+  const supplier: Supplier = { id: a.id, businessId: a.businessId, ...cleanSupplier(a.input), archived: false, createdAt: a.now, updatedAt: a.now };
+  return { ok: true, supplier, movements: [], audit: [sAudit(a.businessId, a.staff, a.now, "supplier.created", a.id, undefined, supplier.name)] };
+}
+export function buildSupplierUpdate(a: { businessId: string; supplier: Supplier; input: SupplierInput; SUP: Supplier[]; staff: string; now: number }): ({ ok: true } & Writes & { supplier: Supplier }) | Fail {
+  const errs = validateSupplier(a.input, a.SUP, a.supplier.id);
+  if (errs.length) return { ok: false, errors: errs };
+  const supplier: Supplier = { ...a.supplier, ...cleanSupplier(a.input), updatedAt: a.now };
+  return { ok: true, supplier, movements: [], audit: [sAudit(a.businessId, a.staff, a.now, "supplier.updated", a.supplier.id, a.supplier.name, supplier.name)] };
+}
+export function buildSupplierArchive(a: { businessId: string; supplier: Supplier; archived: boolean; staff: string; now: number }): ({ ok: true } & Writes & { supplier: Supplier }) | Fail {
+  if (a.supplier.archived === a.archived) return fail(a.archived ? "This supplier is already archived." : "This supplier is not archived.");
+  const supplier = { ...a.supplier, archived: a.archived, updatedAt: a.now };
+  return { ok: true, supplier, movements: [], audit: [sAudit(a.businessId, a.staff, a.now, a.archived ? "supplier.archived" : "supplier.restored", a.supplier.id, undefined, a.supplier.name)] };
+}
+export const hasPurchases = (supplierId: string, PU: Purchase[]) => PU.some((p) => p.supplierId === supplierId);
+export function buildSupplierDelete(a: { businessId: string; supplier: Supplier; PU: Purchase[]; staff: string; now: number }): ({ ok: true } & Writes) | Fail {
+  if (hasPurchases(a.supplier.id, a.PU)) return fail(`${a.supplier.name} has purchase history, so it can't be deleted. Archive it instead.`);
+  return { ok: true, movements: [], audit: [sAudit(a.businessId, a.staff, a.now, "supplier.deleted", a.supplier.id, a.supplier.name)], deleteSupplierId: a.supplier.id };
+}
+
+/* ---------------- purchases ---------------- */
+export const purchaseTotal = (items: { qty: number; unitCost: number }[]) => items.reduce((s, i) => s + i.qty * i.unitCost, 0);
+export const nextPurchaseRef = (PU: Purchase[]) => `PO-${PU.reduce((m, p) => Math.max(m, Number(p.ref.replace(/\D/g, "")) || 0), 1000) + 1}`;
+
+export function purchaseLines(purchase: Purchase, PI: PurchaseItem[], RC: Receipt[], RI: ReceiptItem[]) {
+  const rids = new Set(RC.filter((r) => r.purchaseId === purchase.id).map((r) => r.id));
+  const got = new Map<string, number>();
+  for (const i of RI) if (rids.has(i.receiptId)) got.set(i.productId, (got.get(i.productId) ?? 0) + i.qty);
+  return PI.filter((i) => i.purchaseId === purchase.id).map((i) => {
+    const received = got.get(i.productId) ?? 0;
+    return { productId: i.productId, ordered: i.qty, unitCost: i.unitCost, received, outstanding: Math.max(0, i.qty - received) };
+  });
+}
+export function purchaseStatus(purchase: Purchase, PI: PurchaseItem[], RC: Receipt[], RI: ReceiptItem[]): PurchaseStatus {
+  if (purchase.status === "cancelled") return "cancelled";
+  const lines = purchaseLines(purchase, PI, RC, RI);
+  if (lines.length > 0 && lines.every((l) => l.outstanding === 0)) return "received";
+  if (lines.some((l) => l.received > 0)) return "partial";
+  return purchase.status;
+}
+
+export interface PurchaseLineInput { productId: string; qty: number; unitCost: number }
+export interface PurchaseInput { supplierId: string; lines: PurchaseLineInput[]; note?: string }
+export function validatePurchase(i: PurchaseInput, SUP: Supplier[], P: Product[]): string[] {
+  const errs: string[] = [], seen = new Set<string>();
+  const sup = SUP.find((s) => s.id === i.supplierId);
+  if (!sup) errs.push("Choose a supplier."); else if (sup.archived) errs.push(`${sup.name} is archived. Restore it or choose another supplier.`);
+  if (!i.lines.length) errs.push("Add at least one product.");
+  for (const l of i.lines) {
+    const p = P.find((x) => x.id === l.productId);
+    if (!p) { errs.push("Unknown product."); continue; }
+    if (p.archived) { errs.push(`${p.name} is archived.`); continue; }
+    if (seen.has(l.productId)) { errs.push(`${p.name} appears twice.`); continue; }
+    seen.add(l.productId);
+    if (!Number.isInteger(l.qty) || l.qty <= 0) errs.push(`${p.name}: quantity must be a whole number above zero.`);
+    if (!Number.isFinite(l.unitCost) || l.unitCost < 0) errs.push(`${p.name}: unit cost must be a number, zero or more.`);
+  }
+  return errs;
+}
+const pAudit = (b: string, staff: string, now: number, action: string, id: string, oldValue?: string, newValue?: string): AuditEntry => ({ businessId: b, ts: now, staff, action, entity: "purchase", entityId: id, oldValue, newValue });
+const toItems = (id: string, lines: PurchaseLineInput[]): PurchaseItem[] => lines.map((l) => ({ purchaseId: id, productId: l.productId, qty: l.qty, unitCost: l.unitCost }));
+
+/** Creating a purchase never touches stock. Only receiving does. */
+export function buildPurchaseCreate(a: { businessId: string; id: string; ref: string; input: PurchaseInput; status: "draft" | "ordered"; SUP: Supplier[]; P: Product[]; staff: string; now: number }): ({ ok: true } & Writes & { purchase: Purchase; purchaseItems: PurchaseItem[] }) | Fail {
+  const errs = validatePurchase(a.input, a.SUP, a.P);
+  if (errs.length) return { ok: false, errors: errs };
+  const purchase: Purchase = { id: a.id, businessId: a.businessId, ref: a.ref, supplierId: a.input.supplierId, ts: a.now, staff: a.staff, status: a.status, note: a.input.note?.trim() || undefined };
+  const purchaseItems = toItems(a.id, a.input.lines);
+  return { ok: true, purchase, purchaseItems, movements: [], audit: [pAudit(a.businessId, a.staff, a.now, `purchase.${a.status === "draft" ? "drafted" : "ordered"}`, a.id, undefined, `${a.ref} total ${purchaseTotal(purchaseItems)}`)] };
+}
+export function buildPurchaseUpdate(a: { businessId: string; purchase: Purchase; input: PurchaseInput; status: "draft" | "ordered"; SUP: Supplier[]; P: Product[]; RC: Receipt[]; staff: string; now: number }): ({ ok: true } & Writes & { purchase: Purchase; purchaseItems: PurchaseItem[] }) | Fail {
+  if (a.purchase.status !== "draft" || a.RC.some((r) => r.purchaseId === a.purchase.id)) return fail("Only a draft purchase can be edited.");
+  const errs = validatePurchase(a.input, a.SUP, a.P);
+  if (errs.length) return { ok: false, errors: errs };
+  const purchase: Purchase = { ...a.purchase, supplierId: a.input.supplierId, status: a.status, note: a.input.note?.trim() || undefined };
+  const purchaseItems = toItems(a.purchase.id, a.input.lines);
+  return { ok: true, purchase, purchaseItems, replaceItemsFor: a.purchase.id, movements: [], audit: [pAudit(a.businessId, a.staff, a.now, a.status === "draft" ? "purchase.edited" : "purchase.ordered", a.purchase.id, undefined, `${a.purchase.ref} total ${purchaseTotal(purchaseItems)}`)] };
+}
+export function buildPurchaseOrder(a: { businessId: string; purchase: Purchase; staff: string; now: number }): ({ ok: true } & Writes & { purchase: Purchase }) | Fail {
+  if (a.purchase.status !== "draft") return fail("Only a draft can be marked as ordered.");
+  return { ok: true, purchase: { ...a.purchase, status: "ordered" }, movements: [], audit: [pAudit(a.businessId, a.staff, a.now, "purchase.ordered", a.purchase.id, "draft", "ordered")] };
+}
+/** A purchase with any received stock can't be cancelled: stock must never vanish silently. */
+export function buildPurchaseCancel(a: { businessId: string; purchase: Purchase; RC: Receipt[]; staff: string; now: number }): ({ ok: true } & Writes & { purchase: Purchase }) | Fail {
+  if (a.purchase.status === "cancelled") return fail("This purchase is already cancelled.");
+  if (a.RC.some((r) => r.purchaseId === a.purchase.id)) return fail("Stock from this purchase has already been received, so it can't be cancelled. Returning stock to a supplier needs its own step, which isn't built yet.");
+  return { ok: true, purchase: { ...a.purchase, status: "cancelled" }, movements: [], audit: [pAudit(a.businessId, a.staff, a.now, "purchase.cancelled", a.purchase.id, a.purchase.status, "cancelled")] };
+}
+
+/** Receiving writes the receipt, its items, one stock movement per received line and an audit entry, all together. */
+export function buildReceive(a: { businessId: string; id: string; purchase: Purchase; PI: PurchaseItem[]; RC: Receipt[]; RI: ReceiptItem[]; lines: { productId: string; qty: number }[]; note?: string; staff: string; now: number }): ({ ok: true } & Writes & { receipt: Receipt }) | Fail {
+  if (a.purchase.status === "cancelled") return fail("This purchase was cancelled.");
+  const open = purchaseLines(a.purchase, a.PI, a.RC, a.RI);
+  if (open.every((l) => l.outstanding === 0)) return fail("Everything on this purchase has already been received.");
+  const errs: string[] = [], seen = new Set<string>(), got: { productId: string; qty: number }[] = [];
+  for (const l of a.lines) {
+    const line = open.find((o) => o.productId === l.productId);
+    if (!line) { errs.push("That product isn't on this purchase."); continue; }
+    if (seen.has(l.productId)) { errs.push("A product appears twice."); continue; }
+    seen.add(l.productId);
+    if (!Number.isInteger(l.qty) || l.qty < 0) { errs.push("Received quantities must be whole numbers, zero or more."); continue; }
+    if (l.qty > line.outstanding) { errs.push(`Only ${line.outstanding} still outstanding for one item (you entered ${l.qty}).`); continue; }
+    if (l.qty > 0) got.push(l);
+  }
+  if (!errs.length && !got.length) errs.push("Enter a received quantity for at least one item.");
+  if (errs.length) return { ok: false, errors: [...new Set(errs)] };
+  const receipt: Receipt = { id: a.id, businessId: a.businessId, purchaseId: a.purchase.id, ts: a.now, staff: a.staff, note: a.note?.trim() || undefined };
+  const receiptItems: ReceiptItem[] = got.map((g) => ({ receiptId: a.id, productId: g.productId, qty: g.qty }));
+  const movements: Movement[] = got.map((g) => ({ businessId: a.businessId, productId: g.productId, type: "purchase", qty: g.qty, ts: a.now, staff: a.staff, refId: a.id, reason: a.purchase.ref }));
+  const purchase = a.purchase.status === "draft" ? { ...a.purchase, status: "ordered" as const } : undefined;
+  return { ok: true, receipt, receiptItems, movements, purchase, audit: [pAudit(a.businessId, a.staff, a.now, "purchase.received", a.purchase.id, undefined, `${a.purchase.ref}: ${got.map((g) => g.qty).join("+")} units`)] };
+}
+
+export function supplierStats(supplierId: string, PU: Purchase[], PI: PurchaseItem[], RC: Receipt[], RI: ReceiptItem[]) {
+  const mine = PU.filter((p) => p.supplierId === supplierId && p.status !== "cancelled");
+  let ordered = 0, received = 0;
+  for (const p of mine) { const l = purchaseLines(p, PI, RC, RI); ordered += purchaseTotal(l.map((x) => ({ qty: x.ordered, unitCost: x.unitCost }))); received += purchaseTotal(l.map((x) => ({ qty: x.received, unitCost: x.unitCost }))); }
+  return { count: mine.length, ordered, received };
+}
+
 /* ---------------- dashboard ---------------- */
-export function dashboard(P: Product[], M: Movement[], S: Sale[], SI: SaleItem[], C: StockCount[], now = Date.now()) {
+export interface PurchaseData { PU: Purchase[]; PI: PurchaseItem[]; RC: Receipt[]; RI: ReceiptItem[] }
+export function dashboard(P: Product[], M: Movement[], S: Sale[], SI: SaleItem[], C: StockCount[], PO: PurchaseData = { PU: [], PI: [], RC: [], RI: [] }, now = Date.now()) {
   const voided = new Set(S.filter((s) => s.status === "cancelled").map((s) => s.id));
   const inv = inventory(P, M, voided);
   const active = inv.filter((i) => !i.archived); // archived products never raise alerts
@@ -210,8 +357,16 @@ export function dashboard(P: Product[], M: Movement[], S: Sale[], SI: SaleItem[]
     return { day: new Date(d).toLocaleDateString("en-KE", { weekday: "short" }), value: salesOn(S, SI, d) };
   });
   const today = week[6].value, yesterday = week[5].value;
+  // goods already ordered but not yet delivered, so "low stock" can say "30 on order"
+  const onOrder = new Map<string, number>(); let awaiting = 0, awaitingValue = 0;
+  for (const p of PO.PU) {
+    const st = purchaseStatus(p, PO.PI, PO.RC, PO.RI);
+    if (p.status !== "ordered" || (st !== "ordered" && st !== "partial")) continue;
+    awaiting++;
+    for (const l of purchaseLines(p, PO.PI, PO.RC, PO.RI)) { onOrder.set(l.productId, (onOrder.get(l.productId) ?? 0) + l.outstanding); awaitingValue += l.outstanding * l.unitCost; }
+  }
   return {
-    inv, low, issues, slow, week, today,
+    inv, low, issues, slow, week, today, onOrder, awaiting, awaitingValue,
     delta: yesterday ? ((today - yesterday) / yesterday) * 100 : null,
     stockValue: inv.reduce((s, i) => s + i.value, 0),
     productCount: active.length,

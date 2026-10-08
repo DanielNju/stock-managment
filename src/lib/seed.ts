@@ -1,5 +1,5 @@
 import { BUSINESS_ID as B } from "../config";
-import { DAY, HR, startOfDay, type AuditEntry, type Category, type Movement, type Payment, type Product, type Sale, type SaleItem, type StockCount } from "./engine";
+import { DAY, HR, startOfDay, type AuditEntry, type Category, type Movement, type Payment, type Product, type Purchase, type PurchaseItem, type Receipt, type ReceiptItem, type Sale, type SaleItem, type StockCount, type Supplier } from "./engine";
 
 // id, name, sku, cost, price, min, avg units/day, target stock today, category, unit
 const RAW: [string, string, string, number, number, number, number, number, string, string][] = [
@@ -11,7 +11,10 @@ const RAW: [string, string, string, number, number, number, number, number, stri
 ];
 const CATEGORIES: [string, string][] = [["c-bev", "Beverages"], ["c-dairy", "Dairy"], ["c-bake", "Bakery"], ["c-groc", "Groceries"], ["c-home", "Household"], ["c-snack", "Snacks"]];
 const STAFF = ["James", "Mary", "Brian"];
-export interface SeedData { categories: Category[]; products: Product[]; movements: Movement[]; sales: Sale[]; saleItems: SaleItem[]; counts: StockCount[]; audit: AuditEntry[] }
+export interface SeedData {
+  categories: Category[]; products: Product[]; movements: Movement[]; sales: Sale[]; saleItems: SaleItem[]; counts: StockCount[]; audit: AuditEntry[];
+  suppliers: Supplier[]; purchases: Purchase[]; purchaseItems: PurchaseItem[]; receipts: Receipt[]; receiptItems: ReceiptItem[];
+}
 
 export function seed(now = Date.now()): SeedData {
   let s = 7;
@@ -21,6 +24,7 @@ export function seed(now = Date.now()): SeedData {
   const t0 = startOfDay(now);
   const categories: Category[] = CATEGORIES.map(([id, name]) => ({ id, businessId: B, name }));
   const products: Product[] = RAW.map(([id, name, sku, cost, price, min, , , categoryId, unit]) => ({ id, businessId: B, name, sku, categoryId, unit, cost, price, min, archived: false, createdAt: t0 - 60 * DAY, updatedAt: t0 - 60 * DAY }));
+  const cost = new Map(RAW.map((r) => [r[0], r[3]]));
   const M: Movement[] = [], drafts: { ts: number; staff: string; payment: Payment; lines: { p: Product; qty: number }[] }[] = [];
   const mv = (productId: string, type: Movement["type"], qty: number, ts: number, staff: string, refId?: string, reason?: string) =>
     M.push({ businessId: B, productId, type, qty, ts, staff, refId, reason });
@@ -56,18 +60,44 @@ export function seed(now = Date.now()): SeedData {
     mv(productId, "count", diff, ts, staff, id, reason);
     audit.push({ businessId: B, ts, staff, action: "stock.counted", entity: "product", entityId: productId, newValue: String(diff) });
   };
-  mv("p2", "purchase", 50, Math.max(t0 + 6e4, now - 3 * HR), "Mary");
   mv("p3", "adjustment", -2, t0 - DAY + 10 * HR, "James", undefined, "Damaged");
   count("seed-count-1", "p3", -6, t0 - 2 * DAY + 17 * HR, "Mary", "Missing");
   count("seed-count-2", "p6", -3, t0 - 2 * DAY + 17.5 * HR, "Brian", "Counting correction");
-  for (const [id, , , , , , , target] of RAW) {
+
+  // suppliers and purchases (stock only ever enters through receipts)
+  const suppliers: Supplier[] = [
+    { id: "sup-1", businessId: B, name: "Mombasa Road Wholesalers", contact: "Peter Otieno", phone: "+254 700 111 222", location: "Industrial Area, Nairobi", archived: false, createdAt: t0 - 60 * DAY, updatedAt: t0 - 60 * DAY },
+    { id: "sup-2", businessId: B, name: "Kilimani Dairy Supplies", contact: "Grace Wanjiru", phone: "+254 711 333 444", email: "orders@kilimanidairy.example", archived: false, createdAt: t0 - 60 * DAY, updatedAt: t0 - 60 * DAY },
+    { id: "sup-3", businessId: B, name: "Sunrise Bakers", phone: "+254 722 555 666", notes: "Delivers before 7am", archived: false, createdAt: t0 - 60 * DAY, updatedAt: t0 - 60 * DAY },
+  ];
+  const purchases: Purchase[] = [], purchaseItems: PurchaseItem[] = [], receipts: Receipt[] = [], receiptItems: ReceiptItem[] = [];
+  const po = (n: number, supplierId: string, ts: number, status: Purchase["status"], lines: [string, number, number][], staff = "Mary") => {
+    const id = `seed-po-${n}`;
+    purchases.push({ id, businessId: B, ref: `PO-${1000 + n}`, supplierId, ts, staff, status });
+    lines.forEach(([productId, qty, unitCost]) => purchaseItems.push({ purchaseId: id, productId, qty, unitCost }));
+    return id;
+  };
+  const receive = (poId: string, rid: string, ts: number, staff: string, lines: [string, number][]) => {
+    receipts.push({ id: rid, businessId: B, purchaseId: poId, ts, staff });
+    lines.forEach(([productId, qty]) => { receiptItems.push({ receiptId: rid, productId, qty }); mv(productId, "purchase", qty, ts, staff, rid, purchases.find((x) => x.id === poId)!.ref); });
+  };
+  // PO-1002: milk, 80 ordered yesterday, 50 delivered today (partially received)
+  const milk = po(2, "sup-2", t0 - DAY + 9 * HR, "ordered", [["p2", 80, 50]]);
+  receive(milk, "seed-rc-2", Math.max(t0 + 6e4, now - 3 * HR), "Mary", [["p2", 50]]);
+  // PO-1001: opening delivery, sized so each product ends on its target stock today
+  const lines: [string, number, number][] = RAW.map(([id, , , c, , , , target]) => {
     const have = M.filter((m) => m.productId === id).reduce((a, m) => a + m.qty, 0);
-    mv(id, "purchase", Math.max(1, target - have), t0 - 50 * DAY, "Mary");
-  }
-  // fill in expected/counted now that all movements before each count are known
-  for (const c of counts) {
+    return [id, Math.max(1, target - have), c];
+  });
+  const opening = po(1, "sup-1", t0 - 51 * DAY, "ordered", lines);
+  receive(opening, "seed-rc-1", t0 - 50 * DAY, "Mary", lines.map(([id, q]) => [id, q]));
+  // PO-1003 ordered, nothing delivered yet; PO-1004 still a draft
+  po(3, "sup-1", t0 - 1 * DAY + 11 * HR, "ordered", [["p5", 12, cost.get("p5")!], ["p3", 20, cost.get("p3")!]]);
+  po(4, "sup-3", t0 + 8 * HR > now ? t0 : t0 + 8 * HR, "draft", [["p4", 40, cost.get("p4")!]]);
+
+  for (const c of counts) { // fill in expected/counted now that all movements before each count are known
     const before = M.filter((m) => m.productId === c.productId && m.ts < c.ts).reduce((a, m) => a + m.qty, 0);
     c.expected = before; c.counted = before + c.diff;
   }
-  return { categories, products, movements: M, sales, saleItems, counts, audit };
+  return { categories, products, movements: M, sales, saleItems, counts, audit, suppliers, purchases, purchaseItems, receipts, receiptItems };
 }
