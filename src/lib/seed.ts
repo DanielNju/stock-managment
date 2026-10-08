@@ -1,5 +1,7 @@
-import { DAY, HR, startOfDay, type Movement, type Product } from "./engine";
+import { BUSINESS_ID as B } from "../config";
+import { DAY, HR, startOfDay, type AuditEntry, type Movement, type Payment, type Product, type Sale, type SaleItem, type StockCount } from "./engine";
 
+// id, name, sku, cost, price, min, avg units/day, target stock today
 const RAW: [number, string, string, number, number, number, number, number][] = [
   [1, "Coca-Cola 500ml", "COKE500", 45, 60, 15, 6, 8], [2, "Milk 500ml", "MILK500", 52, 70, 12, 5, 5],
   [3, "Sugar 1kg", "SUGAR1", 150, 180, 10, 2, 29], [4, "Bread 400g", "BREAD400", 50, 65, 10, 6, 22],
@@ -8,26 +10,62 @@ const RAW: [number, string, string, number, number, number, number, number][] = 
   [9, "Biscuits Pack", "BISC", 35, 50, 15, 0, 26], [10, "Tea Leaves 250g", "TEA250", 95, 120, 8, 1.5, 9],
 ];
 const STAFF = ["James", "Mary", "Brian"];
+export interface SeedData { products: Product[]; movements: Movement[]; sales: Sale[]; saleItems: SaleItem[]; counts: StockCount[]; audit: AuditEntry[] }
 
-export function seed(now = Date.now()): { products: Product[]; movements: Movement[] } {
+export function seed(now = Date.now()): SeedData {
   let s = 7;
   const rnd = () => { s |= 0; s = (s + 0x6d2b79f5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s);
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
-  const t0 = startOfDay(now), M: Movement[] = [];
-  const add = (productId: number, type: Movement["type"], qty: number, ts: number, staff = STAFF[Math.floor(rnd() * 3)]) =>
-    M.push({ productId, type, qty, ts, staff });
-  for (const [id, , , , , , rate] of RAW) {
-    if (rate <= 0) continue;
-    for (let d = 13; d >= 1; d--) { const q = Math.round(rate * (0.6 + rnd() * 0.8)); if (q > 0) add(id, "sale", -q, t0 - d * DAY + (8 + rnd() * 10) * HR); }
-    add(id, "sale", -Math.max(1, Math.round(rate * (0.5 + rnd()))), Math.max(t0 + 6e4, now - rnd() * 6 * HR));
+  const pick = () => STAFF[Math.floor(rnd() * 3)];
+  const t0 = startOfDay(now);
+  const products: Product[] = RAW.map(([id, name, sku, cost, price, min]) => ({ id, businessId: B, name, sku, cost, price, min }));
+  const M: Movement[] = [], drafts: { ts: number; staff: string; payment: Payment; lines: { p: Product; qty: number }[] }[] = [];
+  const mv = (productId: number, type: Movement["type"], qty: number, ts: number, staff: string, refId?: string, reason?: string) =>
+    M.push({ businessId: B, productId, type, qty, ts, staff, refId, reason });
+  // Coca-Cola cost KES 55 more than a week ago: shows that sales keep the price they were made at
+  const priceAt = (p: Product, d: number) => (p.id === 1 && d > 7 ? 55 : p.price);
+
+  for (let d = 13; d >= 0; d--) {
+    const k = d === 0 ? 3 : 4, baskets = Array.from({ length: k }, () => [] as { p: Product; qty: number }[]);
+    for (const [i, raw] of RAW.entries()) {
+      const rate = raw[6]; if (rate <= 0) continue;
+      const qty = d > 0 ? Math.round(rate * (0.6 + rnd() * 0.8)) : Math.max(1, Math.round(rate * (0.5 + rnd())));
+      if (qty > 0) baskets[Math.floor(rnd() * k)].push({ p: { ...products[i], price: priceAt(products[i], d) }, qty });
+    }
+    for (const lines of baskets) if (lines.length) drafts.push({
+      ts: d > 0 ? t0 - d * DAY + (8 + rnd() * 10) * HR : Math.max(t0 + 6e4, now - rnd() * 6 * HR),
+      staff: pick(), payment: rnd() < 0.55 ? "mpesa" : "cash", lines });
   }
-  add(8, "sale", -2, t0 - 45 * DAY); add(9, "sale", -3, t0 - 44 * DAY);
-  add(2, "purchase", 50, Math.max(t0 + 6e4, now - 3 * HR), "Mary");
-  add(3, "adjustment", -2, t0 - DAY + 10 * HR, "James");
-  add(3, "count", -6, t0 - 2 * DAY + 17 * HR, "Mary"); add(6, "count", -3, t0 - 2 * DAY + 17.5 * HR, "Brian");
+  drafts.push({ ts: t0 - 45 * DAY, staff: "Mary", payment: "cash", lines: [{ p: products[7], qty: 2 }] });
+  drafts.push({ ts: t0 - 44 * DAY, staff: "Mary", payment: "cash", lines: [{ p: products[8], qty: 3 }] });
+  drafts.sort((a, b) => a.ts - b.ts);
+
+  const sales: Sale[] = [], saleItems: SaleItem[] = [];
+  drafts.forEach((d, i) => {
+    const id = `seed-sale-${i}`;
+    const items = d.lines.map((l) => ({ saleId: id, productId: l.p.id, qty: l.qty, unitPrice: l.p.price, unitCost: l.p.cost }));
+    sales.push({ id, businessId: B, receiptNo: `SL-${1001 + i}`, ts: d.ts, staff: d.staff, payment: d.payment, total: items.reduce((a, x) => a + x.qty * x.unitPrice, 0), status: "completed" });
+    items.forEach((x) => { saleItems.push(x); mv(x.productId, "sale", -x.qty, d.ts, d.staff, id); });
+  });
+
+  const counts: StockCount[] = [], audit: AuditEntry[] = [];
+  const count = (id: string, productId: number, diff: number, ts: number, staff: string, reason: string) => {
+    counts.push({ id, businessId: B, ts, staff, productId, expected: 0, counted: 0, diff, reason });
+    mv(productId, "count", diff, ts, staff, id, reason);
+    audit.push({ businessId: B, ts, staff, action: "stock.counted", entity: "product", entityId: String(productId), newValue: String(diff) });
+  };
+  mv(2, "purchase", 50, Math.max(t0 + 6e4, now - 3 * HR), "Mary");
+  mv(3, "adjustment", -2, t0 - DAY + 10 * HR, "James", undefined, "Damaged");
+  count("seed-count-1", 3, -6, t0 - 2 * DAY + 17 * HR, "Mary", "Missing");
+  count("seed-count-2", 6, -3, t0 - 2 * DAY + 17.5 * HR, "Brian", "Counting correction");
   for (const [id, , , , , , , target] of RAW) {
     const have = M.filter((m) => m.productId === id).reduce((a, m) => a + m.qty, 0);
-    add(id, "purchase", Math.max(1, target - have), t0 - 50 * DAY, "Mary");
+    mv(id, "purchase", Math.max(1, target - have), t0 - 50 * DAY, "Mary");
   }
-  return { products: RAW.map(([id, name, sku, cost, price, min]) => ({ id, name, sku, cost, price, min })), movements: M };
+  // fill in expected/counted now that all movements before each count are known
+  for (const c of counts) {
+    const before = M.filter((m) => m.productId === c.productId && m.ts < c.ts).reduce((a, m) => a + m.qty, 0);
+    c.expected = before; c.counted = before + c.diff;
+  }
+  return { products, movements: M, sales, saleItems, counts, audit };
 }

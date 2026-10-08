@@ -1,52 +1,34 @@
-import { useMemo, type ReactNode } from "react";
+import { useMemo } from "react";
 import { useNavigate, useOutletContext } from "react-router-dom";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { AlertTriangle, Plus } from "lucide-react";
-import { DAY, dashboard, startOfDay, type ActivityItem, type MoveType } from "../lib/engine";
+import { dashboard, type MoveType } from "../lib/engine";
+import { kes, when } from "../lib/format";
 import type { StockCtx } from "../lib/store";
+import { Badge, Card } from "../components/ui";
 
-const kes = (n: number) => "KES " + Math.round(n).toLocaleString("en-KE");
-const LABEL: Record<MoveType, string> = { sale: "Sold", purchase: "Received stock", adjustment: "Adjusted stock", damage: "Reported damage", count: "Counted stock" };
-const when = (ts: number) => {
-  const t0 = startOfDay(Date.now());
-  if (ts >= t0) return new Date(ts).toLocaleTimeString("en-KE", { hour: "numeric", minute: "2-digit" });
-  return ts >= t0 - DAY ? "Yesterday" : new Date(ts).toLocaleDateString("en-KE", { day: "numeric", month: "short" });
-};
-const qty = (m: ActivityItem) => m.type === "sale" || m.type === "purchase" ? `× ${Math.abs(m.qty)}` : `${m.qty > 0 ? "+" : "−"}${Math.abs(m.qty)}`;
-
-const Card = ({ children, className = "" }: { children: ReactNode; className?: string }) =>
-  <section className={`rounded-2xl border border-line bg-surface p-4 sm:p-5 ${className}`}>{children}</section>;
+const LABEL: Record<MoveType, string> = { sale: "Sold", purchase: "Received stock", adjustment: "Adjusted stock", damage: "Reported damage", count: "Counted stock", return: "Returned stock" };
+const qty = (type: MoveType, q: number) => (type === "sale" || type === "purchase" || type === "return") ? `× ${Math.abs(q)}` : `${q > 0 ? "+" : "−"}${Math.abs(q)}`;
 
 function Metric({ label, value, sub, onClick }: { label: string; value: string; sub: string; onClick?: () => void }) {
   const cls = "flex min-h-28 flex-col justify-between rounded-2xl border border-line bg-surface p-4 text-left";
   const body = <><span className="text-sm text-muted">{label}</span><span className="text-2xl font-bold">{value}</span><span className="text-xs text-muted">{sub}</span></>;
   return onClick ? <button onClick={onClick} className={cls}>{body}</button> : <div className={cls}>{body}</div>;
 }
-const Badge = ({ tone, children }: { tone: "bad" | "warn" | "muted"; children: ReactNode }) => {
-  const c = { bad: "text-bad border-bad", warn: "text-warn border-warn", muted: "text-muted border-line" }[tone];
-  return <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold ${c}`}>{children}</span>;
-};
 
 export default function Dashboard() {
-  const { state, addMovement } = useOutletContext<StockCtx>();
+  const { state } = useOutletContext<StockCtx>();
   const nav = useNavigate();
-  const d = useMemo(() => (state ? dashboard(state.P, state.M) : null), [state]);
+  const d = useMemo(() => (state ? dashboard(state.P, state.M, state.S, state.SI, state.C) : null), [state]);
   if (!d) return <p className="text-muted">Loading your shop…</p>;
-
   const h = new Date().getHours();
   const greeting = h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
-  const quickSale = () => {
-    const pick = d.inv.filter((i) => i.stock > 0);
-    if (!pick.length) return;
-    const p = pick[Math.floor(Math.random() * pick.length)];
-    void addMovement({ productId: p.id, type: "sale", qty: -1, ts: Date.now(), staff: "James" });
-  };
 
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div><h1 className="text-2xl font-bold sm:text-3xl">{greeting}, James</h1><p className="text-muted">Here's what's happening today.</p></div>
-        <button onClick={quickSale} className="inline-flex min-h-12 items-center gap-2 rounded-xl bg-pdark px-5 font-semibold text-white"><Plus size={20} />New sale (demo)</button>
+        <button onClick={() => nav("/sales")} className="inline-flex min-h-12 items-center gap-2 rounded-xl bg-pdark px-5 font-semibold text-white"><Plus size={20} />New sale</button>
       </div>
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         <Metric label="Today's sales" value={kes(d.today)} sub={d.delta == null ? "First sales today" : `${d.delta >= 0 ? "↑" : "↓"} ${Math.abs(d.delta).toFixed(1)}% vs yesterday`} />
@@ -80,9 +62,9 @@ export default function Dashboard() {
               </li>
             ))}
             {d.issues.map((m) => (
-              <li key={`c${m.id}`} className="flex items-center justify-between gap-2 py-3">
+              <li key={m.id} className="flex items-center justify-between gap-2 py-3">
                 <div><Badge tone="warn"><AlertTriangle size={14} />Check</Badge><p className="mt-1 font-medium">{m.name}</p></div>
-                <span className="text-right text-sm text-muted">{Math.abs(m.qty)} short<br />{m.staff}, {when(m.ts)}</span>
+                <span className="text-right text-sm text-muted">{m.short} short{m.reason ? `, ${m.reason.toLowerCase()}` : ""}<br />{m.staff}, {when(m.ts)}</span>
               </li>
             ))}
             {d.slow.length > 0 && (
@@ -101,7 +83,7 @@ export default function Dashboard() {
           {d.activity.map((m) => (
             <li key={m.id} className="flex items-center gap-3 py-3">
               <span className="grid size-10 shrink-0 place-items-center rounded-full bg-soft font-bold text-pdark" aria-hidden>{m.staff[0]}</span>
-              <div className="min-w-0 flex-1"><p className="text-sm"><b>{m.staff}</b> <span className="text-muted">{LABEL[m.type]}</span></p><p className="truncate">{m.name} {qty(m)}</p></div>
+              <div className="min-w-0 flex-1"><p className="text-sm"><b>{m.staff}</b> <span className="text-muted">{LABEL[m.type]}</span></p><p className="truncate">{m.name} {qty(m.type, m.qty)}</p></div>
               <span className="whitespace-nowrap text-xs text-muted">{when(m.ts)}</span>
             </li>
           ))}
