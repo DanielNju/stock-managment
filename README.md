@@ -3,7 +3,7 @@
 Offline-first stock management for small shops. It does not just record stock. It tells the owner what needs attention.
 
 > **Stockly is a temporary name.** Change `APP_NAME` in `src/config.ts` to rename it.
-> **Status:** v0.3.0, early development. Dashboard, Sales, Inventory (stock count) and Products are built. Data is demo data stored in your browser.
+> **Status:** v0.4.0, early development. Dashboard, Sales, Inventory (stock count), Products and Purchases (with Suppliers) are built. Data is demo data stored in your browser.
 
 ---
 
@@ -31,7 +31,10 @@ Every stock change is recorded as a **movement** (a sale, a purchase, an adjustm
 | Atomic writes (a sale saves completely or not at all) and an audit log (stored, no screen yet) | Built and tested |
 | Local data (IndexedDB via Dexie), upgrade from the v0.1 demo database | Built and tested |
 | Installable PWA with service worker | Configured (production build only) |
-| Purchases, Customers, Settings | Placeholders |
+| Suppliers: add, edit, archive, delete (only with no purchases), purchase history and totals | Built and tested |
+| Purchases: draft, ordered, partial and full receiving, cancel, list with search and filters | Built and tested |
+| Receiving: partial deliveries, no over-receiving, retry-proof, all-or-nothing | Built and tested |
+| Customers, Settings | Placeholders |
 | Sign-in and roles, business isolation, sync, backend API | Not started |
 
 ## Quick start
@@ -77,6 +80,11 @@ Every action ──► Audit entry
 - **Products never store stock.** The number on a product page comes from its movements. Opening stock entered when adding a product becomes an `opening` movement.
 - Editing a product changes the product only. Sales keep the price they were made at, and price or cost changes are written to the audit log with the old and new values.
 - A product with any stock or sales history can be **archived** but not deleted. Archived products can't be sold and don't raise alerts.
+- **Creating a purchase never changes stock. Receiving does.** A delivery saves its receipt, received quantities, one stock movement per line and an audit entry together or not at all. Each purchase line keeps the cost it was ordered at.
+- "Partially received" and "Received" are worked out from the receipts, not stored, so they can't drift out of step with the stock.
+- You can't receive more than is outstanding, and a delivery's ID is reused on retry, so tapping twice (or a lost connection) can't add the stock twice.
+- A purchase with any received stock can't be cancelled. Stock never disappears silently.
+- Suppliers with purchase history can be archived but not deleted. Archived suppliers still show on old purchases.
 - Product IDs are UUIDs, so two phones can add products offline without clashing.
 - A stock count compares the shelf with the system and records the difference with a reason.
 - Every record carries a `businessId` (a placeholder for now), ready for multi-business isolation.
@@ -113,6 +121,11 @@ src/
 │   ├── Products.tsx     Product list, filters, categories
 │   ├── ProductForm.tsx  Add and edit product
 │   ├── ProductDetail.tsx Stock, value, movements, sales, archive/delete
+│   ├── Purchases.tsx    Purchase list and suppliers tab
+│   ├── PurchaseForm.tsx Create or edit a draft purchase
+│   ├── PurchaseDetail.tsx Lines, receive stock, deliveries, cancel
+│   ├── SupplierForm.tsx
+│   ├── SupplierDetail.tsx
 │   └── Placeholder.tsx  Stand-in for unbuilt screens
 └── lib/
     ├── engine.ts        Sales, counts, validation, dashboard (pure)
@@ -145,6 +158,10 @@ The dashboard borrows layout patterns from the Innap admin template. This projec
 - Credit sales are not available until Customers is built.
 - Upgrading from an earlier version clears the browser's demo data and reloads fresh demo data (v0.3 changed product IDs). Once real data exists, upgrades will need proper migrations.
 - Products have no images, variants or multiple suppliers yet.
+- Receiving does not change a product's cost price. Whether to use the latest cost or an average is still to be decided.
+- A partly delivered purchase can't be closed short or cancelled yet, and returning stock to a supplier isn't built. Both need their own steps so stock never vanishes silently.
+- No supplier balances, payments or accounts payable (kept out on purpose until research shows they matter).
+- Only a draft purchase can be edited. An ordered purchase's lines are locked.
 - The PWA icons are placeholders. Replace them in `public/` before launch.
 - The active sidebar item and avatar initials are slightly under the 4.5:1 contrast minimum. See DESIGN.md for the one-line fix.
 - The bundle is about 680 KB (203 KB gzipped). Split by route as screens are added.
@@ -153,8 +170,8 @@ The dashboard borrows layout patterns from the Innap admin template. This projec
 ## Roadmap
 
 1. ~~Sales screen~~ and ~~stock count~~ (done)
-2. ~~Products~~ (done), then Purchases (receive stock) and suppliers
-3. Customers and credit sales
+2. ~~Products~~ and ~~Purchases with suppliers~~ (done)
+3. Customers and credit sales; close-short and supplier returns
 4. Working search, and an audit log screen
 5. Database design and offline sync rules
 6. Backend API, PostgreSQL, authentication, roles and per-business data isolation

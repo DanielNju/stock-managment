@@ -225,6 +225,16 @@ What was deliberately *not* taken: chat, email, calendar, the many chart librari
 
 ---
 
+## 10c. Purchases screens
+
+- **List:** one row per purchase: reference, supplier, date, total, status badge. Search by reference or supplier, filter by status and date. A second tab lists suppliers.
+- **Status words:** Draft, Ordered (grey), Partially received (amber), Received (green), Cancelled (grey). Always a word, never color alone.
+- **New purchase:** supplier, then products with quantity and unit cost (cost starts at the product's current cost), live total. A supplier can be added without leaving the form. Two buttons: save and mark as ordered, or save as draft. A line of text states that saving does not change stock.
+- **Receive stock:** a panel on the purchase page. One number field per outstanding item, with "Fill all outstanding". Blank means nothing arrived. Over-receiving is refused with a message.
+- **Dashboard:** low-stock rows say how many are already on order, and an "On order" row shows purchases awaiting delivery.
+
+---
+
 ## 11. Known issues and open decisions
 
 1. **Active-nav and avatar contrast is 4.43:1 (needs 4.5:1).** `#C72C72` on `#FCE7F3`. A verified fix: change `--primary-dark` to **`#C0286B`** (4.75:1 on soft pink, 5.59:1 on white and as a button fill). One variable, no component changes.

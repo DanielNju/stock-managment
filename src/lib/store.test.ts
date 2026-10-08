@@ -89,4 +89,71 @@ describe("store (IndexedDB)", () => {
     expect((await s.transact<object>((x) => E.buildCategoryDelete({ businessId: "t", category: cat, P: x.P, staff: "J", now: 1 }))).ok).toBe(true);
     expect((await s.load()).CAT.some((c) => c.id === cat.id)).toBe(false);
   });
+
+  it("receives purchases safely: partial, no double counting, all-or-nothing, retry-proof", async () => {
+    const { _internals: s } = await import("./store");
+    const E = await import("./engine");
+    const stock = (sn: Awaited<ReturnType<typeof s.load>>, id: string) => E.inventory(sn.P, sn.M).find((p) => p.id === id)!.stock;
+    const supId = s.uid(), poId = s.uid();
+    const run = <T extends object>(plan: Parameters<typeof s.transact<T>>[0]) => s.transact<T>(plan);
+
+    let snap = await s.load();
+    // demo data: PO-1002 is partially received (50 of 80 milk), PO-1003 is ordered, PO-1004 is a draft
+    const st = (ref: string) => { const p = snap.PU.find((x) => x.ref === ref)!; return E.purchaseStatus(p, snap.PI, snap.RC, snap.RI); };
+    expect([st("PO-1001"), st("PO-1002"), st("PO-1003"), st("PO-1004")]).toEqual(["received", "partial", "ordered", "draft"]);
+    expect(stock(snap, "p2")).toBe(5);
+
+    // a new supplier and a draft purchase: stock does not move
+    expect((await run<object>((x) => E.buildSupplierCreate({ businessId: "t", id: supId, input: { name: "Test Supplier" }, SUP: x.SUP, staff: "J", now: 1 }))).ok).toBe(true);
+    const made = await run<object>((x) => E.buildPurchaseCreate({ businessId: "t", id: poId, ref: E.nextPurchaseRef(x.PU), input: { supplierId: supId, lines: [{ productId: "p9", qty: 10, unitCost: 33 }, { productId: "p8", qty: 5, unitCost: 58 }] }, status: "draft", SUP: x.SUP, P: x.P, staff: "J", now: 1 }));
+    expect(made.ok).toBe(true);
+    snap = await s.load();
+    const before9 = stock(snap, "p9"), before8 = stock(snap, "p8"), movesBefore = snap.M.length;
+    const recv = (rid: string, lines: { productId: string; qty: number }[]) => run<object>((x) => x.RC.some((r) => r.id === rid) ? { ok: false, errors: ["dup"] } : E.buildReceive({ businessId: "t", id: rid, purchase: x.PU.find((p) => p.id === poId)!, PI: x.PI, RC: x.RC, RI: x.RI, lines, staff: "M", now: 2 }));
+
+    // one bad line makes the whole delivery fail: nothing is written
+    const bad = await recv(s.uid(), [{ productId: "p9", qty: 4 }, { productId: "p8", qty: 99 }]);
+    expect(bad.ok).toBe(false);
+    snap = await s.load();
+    expect(snap.M.length).toBe(movesBefore);
+    expect(snap.RC.filter((r) => r.purchaseId === poId)).toHaveLength(0);
+    expect(stock(snap, "p9")).toBe(before9);
+
+    // receive 4 of 10: partial, stock +4, and the purchase is now ordered
+    const rid = s.uid();
+    expect((await recv(rid, [{ productId: "p9", qty: 4 }])).ok).toBe(true);
+    snap = await s.load();
+    expect(stock(snap, "p9")).toBe(before9 + 4);
+    const po = snap.PU.find((p) => p.id === poId)!;
+    expect(E.purchaseStatus(po, snap.PI, snap.RC, snap.RI)).toBe("partial");
+
+    // sending the same delivery again (a retry) adds nothing
+    expect((await recv(rid, [{ productId: "p9", qty: 4 }])).ok).toBe(false);
+    expect(stock(await s.load(), "p9")).toBe(before9 + 4);
+
+    // cannot cancel once stock arrived
+    expect((await run<object>((x) => E.buildPurchaseCancel({ businessId: "t", purchase: x.PU.find((p) => p.id === poId)!, RC: x.RC, staff: "J", now: 3 }))).ok).toBe(false);
+
+    // receive the rest: complete, and stock is exactly the ordered total
+    expect((await recv(s.uid(), [{ productId: "p9", qty: 6 }, { productId: "p8", qty: 5 }])).ok).toBe(true);
+    snap = await s.load();
+    expect(E.purchaseStatus(snap.PU.find((p) => p.id === poId)!, snap.PI, snap.RC, snap.RI)).toBe("received");
+    expect(stock(snap, "p9")).toBe(before9 + 10);
+    expect(stock(snap, "p8")).toBe(before8 + 5);
+
+    // changing a product's cost leaves the purchase cost alone
+    const prod = snap.P.find((p) => p.id === "p9")!;
+    expect((await run<object>((x) => E.buildProductUpdate({ businessId: "t", product: prod, input: { name: prod.name, sku: prod.sku, unit: prod.unit, cost: 77, price: prod.price, min: prod.min, categoryId: prod.categoryId }, P: x.P, C: x.CAT, staff: "J", now: 4 }))).ok).toBe(true);
+    snap = await s.load();
+    expect(snap.P.find((p) => p.id === "p9")!.cost).toBe(77);
+    expect(snap.PI.find((i) => i.purchaseId === poId && i.productId === "p9")!.unitCost).toBe(33);
+
+    // an archived supplier stays in the records and can't be deleted
+    expect((await run<object>((x) => E.buildSupplierArchive({ businessId: "t", supplier: x.SUP.find((u) => u.id === supId)!, archived: true, staff: "J", now: 5 }))).ok).toBe(true);
+    snap = await s.load();
+    expect(snap.SUP.find((u) => u.id === supId)!.archived).toBe(true);
+    expect(snap.PU.find((p) => p.id === poId)!.supplierId).toBe(supId);
+    expect((await run<object>((x) => E.buildSupplierDelete({ businessId: "t", supplier: x.SUP.find((u) => u.id === supId)!, PU: x.PU, staff: "J", now: 6 }))).ok).toBe(false);
+    expect((await run<object>((x) => E.buildPurchaseCreate({ businessId: "t", id: s.uid(), ref: "PO-X", input: { supplierId: supId, lines: [{ productId: "p9", qty: 1, unitCost: 1 }] }, status: "draft", SUP: x.SUP, P: x.P, staff: "J", now: 7 }))).ok).toBe(false);
+  });
 });
