@@ -214,6 +214,17 @@ What was deliberately *not* taken: chat, email, calendar, the many chart librari
 
 ---
 
+## 10b. Products screens
+
+- **List:** one card per product (name, SKU, category, price and cost, stock, status). Search covers name, SKU and barcode. Filters: category, status, archived.
+- **Status words:** In stock (green, with a check), Low stock and Out of stock (red, with a warning icon), Archived (grey). Color is never the only signal.
+- **Form:** one column on phones, two on wider screens. Money fields use the decimal keypad, count fields the numeric keypad. A price below cost shows an amber warning but does not block saving.
+- **Detail:** stats grid, then Edit, Archive/Restore, Delete. Delete is offered only when a product has no history, and needs a second tap to confirm.
+- **Categories:** a tab on the same page. Rename in place. Deleting a category in use shows how many products still use it.
+- **Units:** whole units only for now (piece, pack, bottle, carton, bag, box, dozen).
+
+---
+
 ## 11. Known issues and open decisions
 
 1. **Active-nav and avatar contrast is 4.43:1 (needs 4.5:1).** `#C72C72` on `#FCE7F3`. A verified fix: change `--primary-dark` to **`#C0286B`** (4.75:1 on soft pink, 5.59:1 on white and as a button fill). One variable, no component changes.

@@ -12,7 +12,7 @@ export default function Sales() {
   const { state, recordSale, cancelSale } = useOutletContext<StockCtx>();
   const [tab, setTab] = useState<"new" | "history">("new");
   const [q, setQ] = useState("");
-  const [cart, setCart] = useState<Record<number, number>>({});
+  const [cart, setCart] = useState<Record<string, number>>({});
   const [pay, setPay] = useState<Payment>("cash");
   const [errors, setErrors] = useState<string[]>([]);
   const [receipt, setReceipt] = useState<{ sale: Sale; items: SaleItem[] } | null>(null);
@@ -23,10 +23,10 @@ export default function Sales() {
   const inv = useMemo(() => (state ? inventory(state.P, state.M, new Set(state.S.filter((s) => s.status === "cancelled").map((s) => s.id))) : []), [state]);
   if (!state) return <p className="text-muted">Loading sales…</p>;
   const name = new Map(state.P.map((p) => [p.id, p.name]));
-  const shown = inv.filter((i) => `${i.name} ${i.sku}`.toLowerCase().includes(q.trim().toLowerCase())).sort((a, b) => a.name.localeCompare(b.name));
-  const lines = Object.entries(cart).map(([id, qty]) => ({ item: inv.find((i) => i.id === Number(id))!, qty })).filter((l) => l.item);
+  const shown = inv.filter((i) => !i.archived).filter((i) => `${i.name} ${i.sku}`.toLowerCase().includes(q.trim().toLowerCase())).sort((a, b) => a.name.localeCompare(b.name));
+  const lines = Object.entries(cart).map(([id, qty]) => ({ item: inv.find((i) => i.id === id)!, qty })).filter((l) => l.item);
   const total = lines.reduce((s, l) => s + l.qty * l.item.price, 0);
-  const setQty = (id: number, qty: number) => setCart((c) => { const n = { ...c }; if (qty <= 0) delete n[id]; else n[id] = qty; return n; });
+  const setQty = (id: string, qty: number) => setCart((c) => { const n = { ...c }; if (qty <= 0) delete n[id]; else n[id] = qty; return n; });
 
   const complete = async () => {
     setBusy(true);

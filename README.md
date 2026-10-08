@@ -3,7 +3,7 @@
 Offline-first stock management for small shops. It does not just record stock. It tells the owner what needs attention.
 
 > **Stockly is a temporary name.** Change `APP_NAME` in `src/config.ts` to rename it.
-> **Status:** v0.2.0, early development. Dashboard, Sales and Inventory (stock count) are built. Data is demo data stored in your browser.
+> **Status:** v0.3.0, early development. Dashboard, Sales, Inventory (stock count) and Products are built. Data is demo data stored in your browser.
 
 ---
 
@@ -24,11 +24,14 @@ Every stock change is recorded as a **movement** (a sale, a purchase, an adjustm
 | Dashboard (counters, sales chart, Needs attention, Recent activity) | Built, runs on real sales and counts |
 | Sales: cart, cash or M-Pesa (recorded manually), receipt, history, cancel with stock returned | Built |
 | Inventory: stock list and **stock count** with reasons | Built |
+| Products: list, search and filters, add, edit, details, archive, delete (only with no history) | Built and tested |
+| Categories: create, rename, delete (blocked while products use them) | Built and tested |
+| Product validation: required name and SKU, unique SKU and barcode, no negative prices or minimums, whole-number rules | Built and tested |
 | Sale records with prices frozen at sale time, stock validation, duplicate protection | Built and tested |
 | Atomic writes (a sale saves completely or not at all) and an audit log (stored, no screen yet) | Built and tested |
 | Local data (IndexedDB via Dexie), upgrade from the v0.1 demo database | Built and tested |
 | Installable PWA with service worker | Configured (production build only) |
-| Products, Purchases, Customers, Settings | Placeholders |
+| Purchases, Customers, Settings | Placeholders |
 | Sign-in and roles, business isolation, sync, backend API | Not started |
 
 ## Quick start
@@ -71,6 +74,10 @@ Every action ──► Audit entry
 - A sale is **validated** (whole quantities above zero, no overselling) and saved with its items, movements and audit entry in **one transaction**, so it saves completely or not at all.
 - Prices are copied onto each sale item. Changing a product price later does not change past sales.
 - Cancelling a sale does not delete it. It marks the sale cancelled and adds `return` movements that put the stock back.
+- **Products never store stock.** The number on a product page comes from its movements. Opening stock entered when adding a product becomes an `opening` movement.
+- Editing a product changes the product only. Sales keep the price they were made at, and price or cost changes are written to the audit log with the old and new values.
+- A product with any stock or sales history can be **archived** but not deleted. Archived products can't be sold and don't raise alerts.
+- Product IDs are UUIDs, so two phones can add products offline without clashing.
 - A stock count compares the shelf with the system and records the difference with a reason.
 - Every record carries a `businessId` (a placeholder for now), ready for multi-business isolation.
 
@@ -103,6 +110,9 @@ src/
 │   ├── Dashboard.tsx
 │   ├── Sales.tsx        New sale, receipt, history, cancel
 │   ├── Inventory.tsx    Stock list and stock count
+│   ├── Products.tsx     Product list, filters, categories
+│   ├── ProductForm.tsx  Add and edit product
+│   ├── ProductDetail.tsx Stock, value, movements, sales, archive/delete
 │   └── Placeholder.tsx  Stand-in for unbuilt screens
 └── lib/
     ├── engine.ts        Sales, counts, validation, dashboard (pure)
@@ -129,11 +139,12 @@ The dashboard borrows layout patterns from the Innap admin template. This projec
 ## Known limitations
 
 - Data is demo data. Staff are fixed placeholders (`CURRENT_STAFF` in `src/config.ts`) until sign-in exists, so "who did it" is not yet trustworthy.
-- Quantities are whole numbers only. Decimal units (kg, litres) need a unit on the product.
+- Quantities are whole numbers only, so the unit list is whole units (piece, pack, bottle, carton, bag, box, dozen). Weighed units such as kg and litres need decimal quantities and are not offered yet.
 - Receipt numbers count up on one device. With several devices they could collide, so the server will need to assign them.
 - Any signed-in-looking user can cancel a sale or adjust stock. Roles and permissions come with authentication.
 - Credit sales are not available until Customers is built.
-- The v0.1 demo database is cleared when upgrading, because it held demo data only.
+- Upgrading from an earlier version clears the browser's demo data and reloads fresh demo data (v0.3 changed product IDs). Once real data exists, upgrades will need proper migrations.
+- Products have no images, variants or multiple suppliers yet.
 - The PWA icons are placeholders. Replace them in `public/` before launch.
 - The active sidebar item and avatar initials are slightly under the 4.5:1 contrast minimum. See DESIGN.md for the one-line fix.
 - The bundle is about 680 KB (203 KB gzipped). Split by route as screens are added.
@@ -142,7 +153,7 @@ The dashboard borrows layout patterns from the Innap admin template. This projec
 ## Roadmap
 
 1. ~~Sales screen~~ and ~~stock count~~ (done)
-2. Products (create, edit, archive) and Purchases (receive stock)
+2. ~~Products~~ (done), then Purchases (receive stock) and suppliers
 3. Customers and credit sales
 4. Working search, and an audit log screen
 5. Database design and offline sync rules

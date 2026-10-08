@@ -2,13 +2,10 @@ import { useMemo } from "react";
 import { useNavigate, useOutletContext } from "react-router-dom";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { AlertTriangle, Plus } from "lucide-react";
-import { dashboard, type MoveType } from "../lib/engine";
-import { kes, when } from "../lib/format";
+import { dashboard } from "../lib/engine";
+import { MOVE_LABEL, kes, qtyText, when } from "../lib/format";
 import type { StockCtx } from "../lib/store";
 import { Badge, Card } from "../components/ui";
-
-const LABEL: Record<MoveType, string> = { sale: "Sold", purchase: "Received stock", adjustment: "Adjusted stock", damage: "Reported damage", count: "Counted stock", return: "Returned stock" };
-const qty = (type: MoveType, q: number) => (type === "sale" || type === "purchase" || type === "return") ? `× ${Math.abs(q)}` : `${q > 0 ? "+" : "−"}${Math.abs(q)}`;
 
 function Metric({ label, value, sub, onClick }: { label: string; value: string; sub: string; onClick?: () => void }) {
   const cls = "flex min-h-28 flex-col justify-between rounded-2xl border border-line bg-surface p-4 text-left";
@@ -83,7 +80,7 @@ export default function Dashboard() {
           {d.activity.map((m) => (
             <li key={m.id} className="flex items-center gap-3 py-3">
               <span className="grid size-10 shrink-0 place-items-center rounded-full bg-soft font-bold text-pdark" aria-hidden>{m.staff[0]}</span>
-              <div className="min-w-0 flex-1"><p className="text-sm"><b>{m.staff}</b> <span className="text-muted">{LABEL[m.type]}</span></p><p className="truncate">{m.name} {qty(m.type, m.qty)}</p></div>
+              <div className="min-w-0 flex-1"><p className="text-sm"><b>{m.staff}</b> <span className="text-muted">{MOVE_LABEL[m.type]}</span></p><p className="truncate">{m.name} {qtyText(m.type, m.qty)}</p></div>
               <span className="whitespace-nowrap text-xs text-muted">{when(m.ts)}</span>
             </li>
           ))}
