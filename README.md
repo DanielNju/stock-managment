@@ -3,7 +3,7 @@
 Offline-first stock management for small shops. It does not just record stock. It tells the owner what needs attention.
 
 > **Stockly is a temporary name.** Change `APP_NAME` in `src/config.ts` to rename it.
-> **Status:** v0.1.0, early development. Only the Dashboard is built.
+> **Status:** v0.2.0, early development. Dashboard, Sales and Inventory (stock count) are built. Data is demo data stored in your browser.
 
 ---
 
@@ -21,12 +21,15 @@ Every stock change is recorded as a **movement** (a sale, a purchase, an adjustm
 
 | Area | State |
 |---|---|
-| Dashboard (counters, sales chart, Needs attention, Recent activity) | Built |
-| App shell (sidebar on desktop, bottom nav on phones) | Built |
-| Local data (IndexedDB via Dexie) with demo data | Built |
+| Dashboard (counters, sales chart, Needs attention, Recent activity) | Built, runs on real sales and counts |
+| Sales: cart, cash or M-Pesa (recorded manually), receipt, history, cancel with stock returned | Built |
+| Inventory: stock list and **stock count** with reasons | Built |
+| Sale records with prices frozen at sale time, stock validation, duplicate protection | Built and tested |
+| Atomic writes (a sale saves completely or not at all) and an audit log (stored, no screen yet) | Built and tested |
+| Local data (IndexedDB via Dexie), upgrade from the v0.1 demo database | Built and tested |
 | Installable PWA with service worker | Configured (production build only) |
-| Sales, Products, Inventory, Purchases, Customers, Settings | Placeholders |
-| Stock count flow, sync, backend API, authentication | Not started |
+| Products, Purchases, Customers, Settings | Placeholders |
+| Sign-in and roles, business isolation, sync, backend API | Not started |
 
 ## Quick start
 
@@ -41,6 +44,7 @@ npm run dev        # development server
 |---|---|
 | `npm run dev` | Start the dev server |
 | `npm run build` | Type-check, then produce a production build in `dist/` |
+| `npm test` | Run the engine and storage tests |
 | `npm run preview` | Serve the production build. **Use this to test install and offline**, because the service worker is only generated in the production build |
 
 The app seeds demo data into your browser on first load. The **New sale (demo)** button adds a real sale movement, and **Reset demo data** at the bottom of the page restores the starting data.
@@ -57,14 +61,18 @@ The app seeds demo data into your browser on first load. The **New sale (demo)**
 ## How it works
 
 ```text
-Stock movements  (stored in IndexedDB)
-      ↓
-Inventory calculation        src/lib/engine.ts
-      ↓
-Dashboard metrics
-      ↓
-Needs attention  +  Recent activity
+Sale ──► Sale items (price and cost frozen at sale time)
+  │
+  └──► Stock movements ──► Inventory calculation ──► Dashboard
+Stock count ──► Count record + movement for the difference
+Every action ──► Audit entry
 ```
+
+- A sale is **validated** (whole quantities above zero, no overselling) and saved with its items, movements and audit entry in **one transaction**, so it saves completely or not at all.
+- Prices are copied onto each sale item. Changing a product price later does not change past sales.
+- Cancelling a sale does not delete it. It marks the sale cancelled and adds `return` movements that put the stock back.
+- A stock count compares the shelf with the system and records the difference with a reason.
+- Every record carries a `businessId` (a placeholder for now), ready for multi-business isolation.
 
 - `src/lib/engine.ts` is **pure logic**: no UI, no storage. It is designed to run unchanged once a backend exists.
 - `src/lib/store.ts` loads and saves data. If IndexedDB is blocked, it falls back to memory and the header says so.
@@ -89,14 +97,19 @@ src/
 ├── App.tsx              Routes
 ├── main.tsx
 ├── components/
-│   └── AppShell.tsx     Sidebar, header, bottom navigation
+│   ├── AppShell.tsx     Sidebar, header, bottom navigation
+│   └── ui.tsx           Card, Badge, buttons, empty state
 ├── pages/
 │   ├── Dashboard.tsx
+│   ├── Sales.tsx        New sale, receipt, history, cancel
+│   ├── Inventory.tsx    Stock list and stock count
 │   └── Placeholder.tsx  Stand-in for unbuilt screens
 └── lib/
-    ├── engine.ts        Inventory and dashboard calculations (pure)
-    ├── store.ts         Dexie database and data hook
-    └── seed.ts          Demo data
+    ├── engine.ts        Sales, counts, validation, dashboard (pure)
+    ├── store.ts         Dexie database, atomic writes, data hook
+    ├── seed.ts          Demo data
+    ├── format.ts        Money and time formatting
+    └── *.test.ts        Engine and storage tests
 public/                  Icons
 vite.config.ts           Vite, Tailwind and PWA setup
 ```
@@ -115,7 +128,12 @@ The dashboard borrows layout patterns from the Innap admin template. This projec
 
 ## Known limitations
 
-- Only the Dashboard exists, and its data is demo data.
+- Data is demo data. Staff are fixed placeholders (`CURRENT_STAFF` in `src/config.ts`) until sign-in exists, so "who did it" is not yet trustworthy.
+- Quantities are whole numbers only. Decimal units (kg, litres) need a unit on the product.
+- Receipt numbers count up on one device. With several devices they could collide, so the server will need to assign them.
+- Any signed-in-looking user can cancel a sale or adjust stock. Roles and permissions come with authentication.
+- Credit sales are not available until Customers is built.
+- The v0.1 demo database is cleared when upgrading, because it held demo data only.
 - The PWA icons are placeholders. Replace them in `public/` before launch.
 - The active sidebar item and avatar initials are slightly under the 4.5:1 contrast minimum. See DESIGN.md for the one-line fix.
 - The bundle is about 680 KB (203 KB gzipped). Split by route as screens are added.
@@ -123,12 +141,13 @@ The dashboard borrows layout patterns from the Innap admin template. This projec
 
 ## Roadmap
 
-1. Sales screen (phone-first), which creates sale movements
-2. Stock count flow, which makes "Stock issues" real
-3. Products and Purchases (receive stock)
-4. Database design and offline sync rules
-5. Backend API, PostgreSQL, authentication and per-business data isolation
-6. Interviews with shop owners to confirm priorities. **Research decides what stays in V1.**
+1. ~~Sales screen~~ and ~~stock count~~ (done)
+2. Products (create, edit, archive) and Purchases (receive stock)
+3. Customers and credit sales
+4. Working search, and an audit log screen
+5. Database design and offline sync rules
+6. Backend API, PostgreSQL, authentication, roles and per-business data isolation
+7. Interviews with shop owners to confirm priorities. **Research decides what stays in V1.**
 
 ## License
 
