@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildPurchaseCancel, buildPurchaseCreate, buildPurchaseOrder, buildPurchaseUpdate, buildReceive, buildSupplierArchive, buildSupplierCreate, buildSupplierDelete, buildSupplierUpdate, nextPurchaseRef, purchaseLines, purchaseStatus, purchaseTotal, supplierStats, validateSupplier, type Purchase, type PurchaseItem, type Receipt, type ReceiptItem, type Supplier, buildArchive, buildCancel, buildCategoryDelete, buildCategoryRename, buildCategoryCreate, buildCount, buildProductCreate, buildProductDelete, buildProductUpdate, buildSale, inventory, validateProduct, type Category, type ProductInput, nextReceiptNo, salesOn, startOfDay, type Movement, type Product, type Sale } from "./engine";
+import { SLOW_DAYS, DAY as D1, buildPurchaseCancel, buildPurchaseCreate, buildPurchaseOrder, buildPurchaseUpdate, buildReceive, buildSupplierArchive, buildSupplierCreate, buildSupplierDelete, buildSupplierUpdate, nextPurchaseRef, purchaseLines, purchaseStatus, purchaseTotal, supplierStats, validateSupplier, type Purchase, type PurchaseItem, type Receipt, type ReceiptItem, type Supplier, buildArchive, buildCancel, buildCategoryDelete, buildCategoryRename, buildCategoryCreate, buildCount, buildProductCreate, buildProductDelete, buildProductUpdate, buildSale, inventory, validateProduct, type Category, type ProductInput, nextReceiptNo, salesOn, startOfDay, type Movement, type Product, type Sale } from "./engine";
 
 const B = "t";
 const base0 = { businessId: B, unit: "piece", archived: false, createdAt: 0, updatedAt: 0 };
@@ -277,5 +277,31 @@ describe("purchases", () => {
     const p = (ref: string) => ({ ref }) as Purchase;
     expect(nextPurchaseRef([])).toBe("PO-1001");
     expect(nextPurchaseRef([p("PO-1004"), p("PO-1002")])).toBe("PO-1005");
+  });
+});
+
+describe("slow-moving stock", () => {
+  const t = Date.now();
+  const mkp = (id: string, createdDaysAgo: number): Product => ({ ...base0, id, name: id, sku: id, cost: 10, price: 15, min: 1, createdAt: t - createdDaysAgo * D1, updatedAt: 0 });
+  const ev = (productId: string, type: Movement["type"], qty: number, daysAgo: number): Movement => ({ businessId: B, productId, type, qty, ts: t - daysAgo * D1, staff: "x" });
+  const slowIds = (P: Product[], M: Movement[]) => inventory(P, M, new Set(), t).filter((i) => i.slow).map((i) => i.id);
+
+  it("flags stock that has not sold for more than the limit", () => {
+    expect(SLOW_DAYS).toBe(30);
+    const P = [mkp("old", 90), mkp("fresh", 90), mkp("edge", 90)];
+    const M = [ev("old", "purchase", 5, 80), ev("old", "sale", -1, 45), ev("fresh", "purchase", 5, 80), ev("fresh", "sale", -1, 2), ev("edge", "purchase", 5, 80), ev("edge", "sale", -1, 30)];
+    expect(slowIds(P, M)).toEqual(["old"]);
+  });
+  it("does not flag a product that was only just added", () => {
+    expect(slowIds([mkp("new", 3)], [ev("new", "opening", 10, 3)])).toEqual([]);
+  });
+  it("flags an old product that never sold, but not one with no stock", () => {
+    expect(slowIds([mkp("never", 60)], [ev("never", "opening", 10, 60)])).toEqual(["never"]);
+    expect(slowIds([mkp("empty", 60)], [ev("empty", "opening", 10, 60), ev("empty", "sale", -10, 50)])).toEqual([]);
+  });
+  it("ignores a cancelled sale when working out the last sale", () => {
+    const P = [mkp("c", 90)];
+    const M = [{ ...ev("c", "purchase", 5, 80) }, { ...ev("c", "sale", -1, 3), refId: "gone" }, { ...ev("c", "return", 1, 3), refId: "gone" }];
+    expect(inventory(P, M, new Set(["gone"]), t)[0].slow).toBe(true);
   });
 });

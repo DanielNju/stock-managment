@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
-import { Check, Layers, LayoutDashboard, MoreHorizontal, Package, Receipt, Search, ShoppingCart, SlidersHorizontal, Users, type LucideIcon } from "lucide-react";
+import { AlertTriangle, HardDrive, Layers, LayoutDashboard, MoreHorizontal, Package, Receipt, Search, ShoppingCart, WifiOff, SlidersHorizontal, Users, type LucideIcon } from "lucide-react";
 import { APP_NAME } from "../config";
 import type { StockCtx } from "../lib/store";
 
@@ -15,8 +15,15 @@ const link = ({ isActive }: { isActive: boolean }) =>
 const tab = ({ isActive }: { isActive: boolean }) =>
   `flex min-h-16 flex-col items-center justify-center gap-0.5 text-xs font-medium ${isActive ? "text-pdark" : "text-muted"}`;
 
+function useOnline() {
+  const [on, setOn] = useState(() => navigator.onLine);
+  useEffect(() => { const up = () => setOn(true), down = () => setOn(false); window.addEventListener("online", up); window.addEventListener("offline", down); return () => { window.removeEventListener("online", up); window.removeEventListener("offline", down); }; }, []);
+  return on;
+}
+
 export default function AppShell({ stock }: { stock: StockCtx }) {
   const [more, setMore] = useState(false);
+  const online = useOnline();
   const mode = stock.state?.mode;
   return (
     <div className="min-h-screen pt-[env(safe-area-inset-top)]">
@@ -28,19 +35,23 @@ export default function AppShell({ stock }: { stock: StockCtx }) {
       </aside>
       <div className="pb-24 lg:ml-[250px] lg:pb-8">
         <header className="sticky top-[env(safe-area-inset-top)] z-10 flex items-center gap-3 border-b border-line bg-surface px-4 py-3 sm:px-6">
-          <span className="font-extrabold lg:hidden"><span className="text-primary">✦</span> {APP_NAME}</span>
+          <span className="shrink-0 whitespace-nowrap font-extrabold lg:hidden"><span className="text-primary">✦</span> {APP_NAME}</span>
           <label className="hidden min-h-11 max-w-md flex-1 items-center gap-2 rounded-xl border border-line bg-bg px-3 text-muted sm:flex">
             <Search size={18} /><input aria-label="Search" placeholder="Search products, sales, customers…" className="flex-1 bg-transparent text-ink outline-none" />
           </label>
-          <span className="ml-auto inline-flex items-center gap-1.5 text-xs font-semibold text-ok">
-            <Check size={16} />{mode === "memory" ? "Memory only (storage blocked)" : "Saved on this phone"}
-          </span>
+          {mode === "memory"
+            ? <span role="status" className="ml-auto inline-flex items-center gap-1.5 text-right text-xs font-semibold leading-tight text-bad"><AlertTriangle size={16} className="shrink-0" />Not saved: storage is blocked</span>
+            : <span role="status" className="ml-auto inline-flex min-w-0 items-center gap-1.5 text-right text-xs leading-tight">
+                {online ? <HardDrive size={16} className="shrink-0 text-muted" /> : <WifiOff size={16} className="shrink-0 text-warn" />}
+                <span className="flex min-w-0 flex-col"><span className="font-semibold text-ink">{online ? "Saved on this device only" : "Offline"}</span>{!online && <span className="text-muted">Saved on this device only</span>}</span></span>}
           <span className="grid size-10 place-items-center rounded-full bg-soft font-bold text-pdark" aria-label="James">J</span>
         </header>
+        <div role="note" className="bg-soft px-4 py-2 text-sm text-ink sm:px-6">
+          <b>Demo version.</b> {mode === "memory" ? "Storage is blocked, so nothing you enter will be kept once you close this page." : "Data stays on this device only: not synced, not backed up, invisible to other phones."} Don't enter real business records.{" "}
+          <NavLink to="/settings" className="font-semibold text-pdark underline">Details</NavLink>
+        </div>
         <main className="mx-auto max-w-[1600px] p-4 sm:p-6 lg:p-8">
           <Outlet context={stock} />
-          <p className="mt-8 text-xs text-muted">Demo data lives in this browser's IndexedDB.{" "}
-            <button className="min-h-11 underline" onClick={() => void stock.resetDemo()}>Reset demo data</button></p>
         </main>
       </div>
       {more && (

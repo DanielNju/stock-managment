@@ -9,7 +9,7 @@ import { Badge, Card } from "../components/ui";
 
 function Metric({ label, value, sub, onClick }: { label: string; value: string; sub: string; onClick?: () => void }) {
   const cls = "flex min-h-28 flex-col justify-between rounded-2xl border border-line bg-surface p-4 text-left";
-  const body = <><span className="text-sm text-muted">{label}</span><span className="text-2xl font-bold">{value}</span><span className="text-xs text-muted">{sub}</span></>;
+  const body = <><span className="text-sm text-muted">{label}</span><span className="whitespace-nowrap text-xl font-bold sm:text-2xl">{value}</span><span className="text-xs text-muted">{sub}</span></>;
   return onClick ? <button onClick={onClick} className={cls}>{body}</button> : <div className={cls}>{body}</div>;
 }
 
@@ -71,9 +71,11 @@ export default function Dashboard() {
               </li>
             )}
             {d.slow.length > 0 && (
-              <li className="flex items-center justify-between gap-2 py-3">
-                <div><Badge tone="muted">Slow</Badge><p className="mt-1 font-medium">{d.slow.length} products haven't sold in 30+ days</p></div>
-                <span className="text-right text-sm text-muted">{kes(d.slow.reduce((s, i) => s + i.value, 0))}<br />tied up</span>
+              <li>
+                <button onClick={() => nav("/inventory?filter=slow")} className="flex min-h-14 w-full items-center justify-between gap-2 py-3 text-left" aria-label={`${d.slow.length} products haven't sold in 30+ days. See which ones.`}>
+                  <span><Badge tone="muted">Slow</Badge><span className="mt-1 block font-medium">{d.slow.length} products haven't sold in 30+ days</span></span>
+                  <span className="text-right text-sm text-muted">{kes(d.slow.reduce((s, i) => s + i.value, 0))}<br />tied up · <span className="font-semibold text-pdark">See which</span></span>
+                </button>
               </li>
             )}
           </ul>

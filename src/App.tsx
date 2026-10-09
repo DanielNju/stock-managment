@@ -12,6 +12,7 @@ import Purchases from "./pages/Purchases";
 import SupplierDetail from "./pages/SupplierDetail";
 import SupplierForm from "./pages/SupplierForm";
 import Sales from "./pages/Sales";
+import Settings from "./pages/Settings";
 import { useStock } from "./lib/store";
 
 export default function App() {
@@ -33,7 +34,8 @@ export default function App() {
         <Route path="purchases/suppliers/:id/edit" element={<SupplierForm mode="edit" />} />
         <Route path="purchases/:id" element={<PurchaseDetail />} />
         <Route path="purchases/:id/edit" element={<PurchaseForm mode="edit" />} />
-        {["customers", "settings"].map((p) => (
+        <Route path="settings" element={<Settings />} />
+        {["customers"].map((p) => (
           <Route key={p} path={p} element={<Placeholder name={p} />} />
         ))}
       </Route>
