@@ -1,0 +1,1 @@
+{"name":"Stockly","short_name":"Stockly","description":"Know your stock. Know what needs attention.","start_url":"/","display":"standalone","background_color":"#FAFAFA","theme_color":"#C72C72","lang":"en","scope":"/","icons":[{"src":"icon-192.png","sizes":"192x192","type":"image/png"},{"src":"icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}]}
