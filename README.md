@@ -3,7 +3,7 @@
 Offline-first stock management for small shops. It does not just record stock. It tells the owner what needs attention.
 
 > **Stockly is a temporary name.** Change `APP_NAME` in `src/config.ts` to rename it.
-> **Status:** v0.4.0, early development. Dashboard, Sales, Inventory (stock count), Products and Purchases (with Suppliers) are built. Data is demo data stored in your browser.
+> **Status:** v0.5.0, early development. Dashboard, Sales, Inventory (stock count), Products and Purchases (with Suppliers) are built. Data is demo data stored in your browser.
 
 ---
 
@@ -34,7 +34,9 @@ Every stock change is recorded as a **movement** (a sale, a purchase, an adjustm
 | Suppliers: add, edit, archive, delete (only with no purchases), purchase history and totals | Built and tested |
 | Purchases: draft, ordered, partial and full receiving, cancel, list with search and filters | Built and tested |
 | Receiving: partial deliveries, no over-receiving, retry-proof, all-or-nothing | Built and tested |
-| Customers, Settings | Placeholders |
+| Slow-moving stock: dashboard row leads to a filtered Inventory list with days since last sale; new products are not flagged | Built and browser-tested |
+| "Saved on this device only" header, offline indicator, demo banner on every screen, Settings page explaining where data lives, confirmed reset | Built and browser-tested |
+| Customers | Placeholder |
 | Sign-in and roles, business isolation, sync, backend API | Not started |
 
 ## Quick start
@@ -51,6 +53,7 @@ npm run dev        # development server
 | `npm run dev` | Start the dev server |
 | `npm run build` | Type-check, then produce a production build in `dist/` |
 | `npm test` | Run the engine and storage tests |
+| `node e2e/phone-checks.mjs` | Phone-size browser checks (needs Playwright, see the top of the file): offline sales, reopen, stock arithmetic, slow stock, data messaging |
 | `npm run preview` | Serve the production build. **Use this to test install and offline**, because the service worker is only generated in the production build |
 
 The app seeds demo data into your browser on first load. The **New sale (demo)** button adds a real sale movement, and **Reset demo data** at the bottom of the page restores the starting data.
@@ -151,6 +154,7 @@ The dashboard borrows layout patterns from the Innap admin template. This projec
 
 ## Known limitations
 
+- Data lives only in this browser (IndexedDB). It is not synced or backed up, and clearing site data or uninstalling erases it. The app says so in the header, a banner and Settings. The browser may still clear it when space is low; the app asks it not to and Settings shows whether that was granted.
 - Data is demo data. Staff are fixed placeholders (`CURRENT_STAFF` in `src/config.ts`) until sign-in exists, so "who did it" is not yet trustworthy.
 - Quantities are whole numbers only, so the unit list is whole units (piece, pack, bottle, carton, bag, box, dozen). Weighed units such as kg and litres need decimal quantities and are not offered yet.
 - Receipt numbers count up on one device. With several devices they could collide, so the server will need to assign them.

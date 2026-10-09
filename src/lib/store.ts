@@ -131,6 +131,7 @@ async function load(): Promise<Snapshot> {
       });
     }
     mode = "device";
+    void navigator.storage?.persist?.().catch(() => {}); // ask the browser not to clear this data when space is low
   } catch (e) { console.error("Local database unavailable, using memory only:", e); mem = mem ?? seed(); mode = "memory"; }
   return read();
 }
@@ -173,4 +174,4 @@ export function useStock(): StockCtx {
 }
 
 /** Exposed for tests only. */
-export const _internals = { load, transact, uid };
+export const _internals = { load, transact, uid, _internals_closeAndReopen: async () => { db.close(); await db.open(); } };

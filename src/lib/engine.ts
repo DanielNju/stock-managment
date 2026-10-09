@@ -26,7 +26,9 @@ export interface PurchaseItem { id?: number; purchaseId: string; productId: stri
 export interface Receipt { id: string; businessId: string; purchaseId: string; ts: number; staff: string; note?: string }
 export interface ReceiptItem { id?: number; receiptId: string; productId: string; qty: number }
 export interface Line { productId: string; qty: number }
-export interface StockItem extends Product { stock: number; value: number; last: number; status: Status }
+export interface StockItem extends Product { stock: number; value: number; last: number; status: Status; slow: boolean }
+/** A product is slow-moving when it has stock but has not sold for this many days. */
+export const SLOW_DAYS = 30;
 
 /** Units are whole-quantity only for now (a pack or bottle can't be split). Weighed units (kg, litre) need decimal quantities and come later. */
 export const UNITS = [
@@ -49,14 +51,16 @@ const fail = (...errors: string[]): Fail => ({ ok: false, errors });
 
 export const stockOf = (M: Movement[], productId: string) => M.reduce((s, m) => (m.productId === productId ? s + m.qty : s), 0);
 
-export function inventory(P: Product[], M: Movement[], voided: Set<string> = new Set()): StockItem[] {
+export function inventory(P: Product[], M: Movement[], voided: Set<string> = new Set(), now = Date.now()): StockItem[] {
   return P.map((p) => {
     const ms = M.filter((m) => m.productId === p.id);
     const stock = ms.reduce((s, m) => s + m.qty, 0);
     const sold = ms.filter((m) => m.type === "sale" && !(m.refId && voided.has(m.refId))).map((m) => m.ts);
     const last = sold.length ? Math.max(...sold) : 0;
     const status: Status = stock <= 0 ? "out" : stock <= p.min ? "low" : "ok";
-    return { ...p, stock, value: stock * p.cost, last, status };
+    // a product added recently is not "slow" just because it has no sales yet: count from the later of last sale and when it was added
+    const slow = stock > 0 && now - Math.max(last, p.createdAt) > SLOW_DAYS * DAY;
+    return { ...p, stock, value: stock * p.cost, last, status, slow };
   });
 }
 
@@ -343,7 +347,7 @@ export function supplierStats(supplierId: string, PU: Purchase[], PI: PurchaseIt
 export interface PurchaseData { PU: Purchase[]; PI: PurchaseItem[]; RC: Receipt[]; RI: ReceiptItem[] }
 export function dashboard(P: Product[], M: Movement[], S: Sale[], SI: SaleItem[], C: StockCount[], PO: PurchaseData = { PU: [], PI: [], RC: [], RI: [] }, now = Date.now()) {
   const voided = new Set(S.filter((s) => s.status === "cancelled").map((s) => s.id));
-  const inv = inventory(P, M, voided);
+  const inv = inventory(P, M, voided, now);
   const active = inv.filter((i) => !i.archived); // archived products never raise alerts
   const t0 = startOfDay(now);
   const names = new Map(P.map((p) => [p.id, p.name]));
@@ -351,7 +355,7 @@ export function dashboard(P: Product[], M: Movement[], S: Sale[], SI: SaleItem[]
   const low = active.filter((i) => i.status !== "ok").sort((a, b) => a.stock - b.stock);
   const issues = C.filter((c) => c.diff < 0 && now - c.ts < 7 * DAY).sort((a, b) => b.ts - a.ts)
     .map((c) => ({ id: c.id, name: nm(c.productId), short: -c.diff, staff: c.staff, ts: c.ts, reason: c.reason }));
-  const slow = active.filter((i) => i.stock > 0 && now - i.last > 30 * DAY);
+  const slow = active.filter((i) => i.slow).sort((a, b) => b.value - a.value);
   const week = Array.from({ length: 7 }, (_, i) => {
     const d = t0 - (6 - i) * DAY;
     return { day: new Date(d).toLocaleDateString("en-KE", { weekday: "short" }), value: salesOn(S, SI, d) };

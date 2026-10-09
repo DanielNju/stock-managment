@@ -156,4 +156,30 @@ describe("store (IndexedDB)", () => {
     expect((await run<object>((x) => E.buildSupplierDelete({ businessId: "t", supplier: x.SUP.find((u) => u.id === supId)!, PU: x.PU, staff: "J", now: 6 }))).ok).toBe(false);
     expect((await run<object>((x) => E.buildPurchaseCreate({ businessId: "t", id: s.uid(), ref: "PO-X", input: { supplierId: supId, lines: [{ productId: "p9", qty: 1, unitCost: 1 }] }, status: "draft", SUP: x.SUP, P: x.P, staff: "J", now: 7 }))).ok).toBe(false);
   });
+
+  it("sale, cancellation and count leave exactly the right stock, and it survives closing the database", async () => {
+    const { _internals: s } = await import("./store");
+    const E = await import("./engine");
+    const stock = (sn: Awaited<ReturnType<typeof s.load>>, id: string) => E.inventory(sn.P, sn.M, new Set(sn.S.filter((x) => x.status === "cancelled").map((x) => x.id))).find((p) => p.id === id)!.stock;
+    let snap = await s.load();
+    const start = stock(snap, "p4"), saleId = s.uid();
+    const sale = await s.transact<object>((x) => E.buildSale({ businessId: "t", id: saleId, receiptNo: E.nextReceiptNo(x.S), lines: [{ productId: "p4", qty: 3 }], P: x.P, M: x.M, staff: "J", payment: "mpesa", now: Date.now() }));
+    expect(sale.ok).toBe(true);
+    snap = await s.load(); expect(stock(snap, "p4")).toBe(start - 3);
+    const cancel = await s.transact<object>((x) => E.buildCancel({ businessId: "t", sale: x.S.find((r) => r.id === saleId)!, items: x.SI.filter((i) => i.saleId === saleId), staff: "J", now: Date.now() }));
+    expect(cancel.ok).toBe(true);
+    snap = await s.load(); expect(stock(snap, "p4")).toBe(start);
+    expect((await s.transact<object>((x) => E.buildCancel({ businessId: "t", sale: x.S.find((r) => r.id === saleId)!, items: x.SI.filter((i) => i.saleId === saleId), staff: "J", now: Date.now() }))).ok).toBe(false); // can't return the stock twice
+    snap = await s.load(); expect(stock(snap, "p4")).toBe(start);
+    const cnt = await s.transact<object>((x) => E.buildCount({ businessId: "t", id: s.uid(), product: x.P.find((p) => p.id === "p4")!, M: x.M, counted: start - 2, reason: "Missing", staff: "J", now: Date.now() }));
+    expect(cnt.ok).toBe(true);
+    snap = await s.load(); expect(stock(snap, "p4")).toBe(start - 2);
+    expect(E.dashboard(snap.P, snap.M, snap.S, snap.SI, snap.C).issues.some((i) => i.name === "Bread 400g" && i.short === 2)).toBe(true);
+
+    // close the database connection and open it again, like closing and reopening the browser
+    await s._internals_closeAndReopen();
+    snap = await s.load();
+    expect(stock(snap, "p4")).toBe(start - 2);
+    expect(snap.S.find((r) => r.id === saleId)!.status).toBe("cancelled");
+  });
 });

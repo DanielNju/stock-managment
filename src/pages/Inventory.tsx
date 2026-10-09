@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
-import { useOutletContext } from "react-router-dom";
+import { useOutletContext, useSearchParams } from "react-router-dom";
 import { AlertTriangle } from "lucide-react";
-import { inventory } from "../lib/engine";
-import { kes, when } from "../lib/format";
+import { SLOW_DAYS, inventory } from "../lib/engine";
+import { daysAgo, kes, when } from "../lib/format";
 import type { StockCtx } from "../lib/store";
 import { Badge, Card, Empty, btnGhost, btnPrimary } from "../components/ui";
 
@@ -11,6 +11,8 @@ const ORDER = { out: 0, low: 1, ok: 2 } as const;
 
 export default function Inventory() {
   const { state, recordCount } = useOutletContext<StockCtx>();
+  const [params, setParams] = useSearchParams();
+  const filter = (["all", "attention", "slow"] as const).find((f) => f === params.get("filter")) ?? "all";
   const [open, setOpen] = useState<string | null>(null);
   const [val, setVal] = useState("");
   const [reason, setReason] = useState("");
@@ -19,7 +21,10 @@ export default function Inventory() {
   const inv = useMemo(() => (state ? inventory(state.P, state.M, new Set(state.S.filter((s) => s.status === "cancelled").map((s) => s.id))) : []), [state]);
   if (!state) return <p className="text-muted">Loading inventory…</p>;
   const name = new Map(state.P.map((p) => [p.id, p.name]));
-  const rows = inv.filter((i) => !i.archived).sort((a, b) => ORDER[a.status] - ORDER[b.status] || a.name.localeCompare(b.name));
+  const live = inv.filter((i) => !i.archived);
+  const tally = { all: live.length, attention: live.filter((i) => i.status !== "ok").length, slow: live.filter((i) => i.slow).length };
+  const rows = live.filter((i) => filter === "all" || (filter === "attention" ? i.status !== "ok" : i.slow))
+    .sort((a, b) => filter === "slow" ? b.value - a.value : ORDER[a.status] - ORDER[b.status] || a.name.localeCompare(b.name));
   const counts = [...state.C].sort((a, b) => b.ts - a.ts).slice(0, 8);
 
   const start = (id: string) => { setOpen(open === id ? null : id); setVal(""); setReason(""); setErrors([]); setMsg(""); };
@@ -33,8 +38,15 @@ export default function Inventory() {
   return (
     <div className="space-y-4">
       <div><h1 className="text-2xl font-bold sm:text-3xl">Inventory</h1><p className="text-muted">Count a product to check the system against the shelf.</p></div>
+      <div className="flex flex-wrap gap-2" role="group" aria-label="Show">
+        {([["all", "All"], ["attention", "Low or out"], ["slow", "Slow-moving"]] as const).map(([f, label]) => (
+          <button key={f} aria-pressed={filter === f} onClick={() => setParams(f === "all" ? {} : { filter: f })} className={`min-h-11 rounded-full border px-4 text-sm font-semibold ${filter === f ? "border-pdark bg-soft text-pdark" : "border-line text-muted"}`}>{label} ({tally[f]})</button>
+        ))}
+      </div>
+      {filter === "slow" && <p className="text-sm text-muted">In stock but not sold for {SLOW_DAYS}+ days, biggest money tied up first.</p>}
       {msg && <p role="status" className="rounded-xl border border-ok p-3 font-medium text-ok">{msg}</p>}
       <Card>
+        {rows.length === 0 && <Empty title={filter === "slow" ? "No slow-moving stock" : "Nothing to show"} hint={filter === "slow" ? `Everything in stock has sold in the last ${SLOW_DAYS} days.` : "Try another filter."} />}
         <ul className="divide-y divide-line">
           {rows.map((i) => {
             const diff = val.trim() === "" ? null : Number(val) - i.stock;
@@ -44,6 +56,7 @@ export default function Inventory() {
                   <div className="min-w-0">
                     <p className="font-medium">{i.name} {i.status !== "ok" && <Badge tone="bad"><AlertTriangle size={14} />{i.status === "out" ? "Out" : "Low"}</Badge>}</p>
                     <p className="text-sm text-muted">{i.sku} · {kes(i.value)} in stock</p>
+                    {i.slow && <p className="text-sm text-warn">{i.last ? `Last sold ${daysAgo(i.last)}` : `No sales since added ${daysAgo(i.createdAt)}`}</p>}
                   </div>
                   <div className="flex items-center gap-3"><span className="text-right"><span className="block text-xl font-bold">{i.stock}</span><span className="text-xs text-muted">min {i.min}</span></span>
                     <button onClick={() => start(i.id)} aria-expanded={open === i.id} className={btnGhost}>Count</button></div>

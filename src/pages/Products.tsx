@@ -17,7 +17,7 @@ export default function Products() {
   const inv = useMemo(() => (state ? inventory(state.P, state.M, new Set(state.S.filter((s) => s.status === "cancelled").map((s) => s.id))) : []), [state]);
   if (!state) return <p className="text-muted">Loading products…</p>;
   const catName = new Map(state.CAT.map((c) => [c.id, c.name]));
-  const rows = inv.filter((i) => i.archived === archived && (!cat || (cat === "none" ? !i.categoryId : i.categoryId === cat)) && (!status || i.status === status)
+  const rows = inv.filter((i) => i.archived === archived && (!cat || (cat === "none" ? !i.categoryId : i.categoryId === cat)) && (!status || (status === "slow" ? i.slow : i.status === status))
     && `${i.name} ${i.sku} ${i.barcode ?? ""}`.toLowerCase().includes(q.trim().toLowerCase())).sort((a, b) => a.name.localeCompare(b.name));
 
   return (
@@ -37,7 +37,7 @@ export default function Products() {
           <label className="flex min-h-12 min-w-48 flex-1 items-center gap-2 rounded-xl border border-line bg-surface px-3 text-muted"><Search size={18} />
             <input value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search products" placeholder="Search name, SKU or barcode" className="flex-1 bg-transparent text-ink outline-none" /></label>
           <select value={cat} onChange={(e) => setCat(e.target.value)} aria-label="Filter by category" className={field}><option value="">All categories</option><option value="none">No category</option>{state.CAT.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
-          <select value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Filter by status" className={field}><option value="">Any status</option><option value="ok">In stock</option><option value="low">Low stock</option><option value="out">Out of stock</option></select>
+          <select value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Filter by status" className={field}><option value="">Any status</option><option value="ok">In stock</option><option value="low">Low stock</option><option value="out">Out of stock</option><option value="slow">Slow-moving</option></select>
           <label className="flex min-h-12 items-center gap-2 px-1 text-sm"><input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} className="size-5" />Archived</label>
         </div>
         <Card>
