@@ -27,6 +27,8 @@ Do this alone, on a phone, and write the numbers down. Every stock change must a
 | 9 | Close the browser tab and reopen | Everything still there | |
 | 10 | Turn on airplane mode, make a sale, close the browser, reopen it (still in airplane mode) | Header shows "Offline" and "Saved on this device only". The sale is still in History and stock is correct | |
 | 11 | Open Settings | Says the data is not synced or backed up, and other phones can't see it | |
+| 13 | Dashboard: sell 3 of any product, then cancel it | Today's sales and gross profit go up by price and (price − cost) × 3, then return to where they were | |
+| 14 | Dashboard on a phone: scroll to the bottom | Nothing runs off the right edge of the screen | |
 | 12 | Dashboard: tap the Slow row | Lists Soap Bar and Biscuits Pack with days since last sale | |
 
 Anything that does not match is a bug. Fix those before testing with owners. Steps 9 to 12 are also covered by `node e2e/phone-checks.mjs`.
@@ -54,6 +56,8 @@ Hand them the phone. Read each task out loud. Do not say which button to press.
 | T6 | "Add a new product: Blue Band 250g, cost 90, selling price 110, 12 on the shelf." | Product added with opening stock |
 | T7 | "Who sold the most recently? What did they sell?" | Finds Recent activity |
 | T8 | "Which products have not sold for a month?" | Opens the Slow row on the dashboard or the Slow-moving filter in Inventory and names them |
+| T10 | "You have KES 20,000 to spend on stock today. What would you buy?" | Uses the Restock table or Needs attention, and says whether the suggestions make sense to them |
+| T11 | "Did you make a profit this week? Which product earns you the most?" | Finds the Sales and profit section and Top products, and says whether the profit figure matches how they think about it |
 | T9 | "If you open this on your brother's phone, will he see these sales?" | Understands the data stays on this phone (check whether they read the banner) |
 
 For each task record: **Done alone / Done after a hint / Failed**, the time it took, and what they said.

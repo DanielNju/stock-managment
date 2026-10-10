@@ -3,7 +3,7 @@
 Offline-first stock management for small shops. It does not just record stock. It tells the owner what needs attention.
 
 > **Stockly is a temporary name.** Change `APP_NAME` in `src/config.ts` to rename it.
-> **Status:** v0.5.0, early development. Dashboard, Sales, Inventory (stock count), Products and Purchases (with Suppliers) are built. Data is demo data stored in your browser.
+> **Status:** v0.6.0, early development. Dashboard, Sales, Inventory (stock count), Products and Purchases (with Suppliers) are built. Data is demo data stored in your browser.
 
 ---
 
@@ -34,6 +34,7 @@ Every stock change is recorded as a **movement** (a sale, a purchase, an adjustm
 | Suppliers: add, edit, archive, delete (only with no purchases), purchase history and totals | Built and tested |
 | Purchases: draft, ordered, partial and full receiving, cancel, list with search and filters | Built and tested |
 | Receiving: partial deliveries, no over-receiving, retry-proof, all-or-nothing | Built and tested |
+| Dashboard: summary cards (today's sales, estimated gross profit, inventory value, low stock), prioritised Needs attention, sales and profit chart (7 or 30 days), top products by sales, profit or units, stock analysis tables (restock, slow-moving, value by category), filterable activity feed | Built, unit-tested and browser-tested |
 | Slow-moving stock: dashboard row leads to a filtered Inventory list with days since last sale; new products are not flagged | Built and browser-tested |
 | "Saved on this device only" header, offline indicator, demo banner on every screen, Settings page explaining where data lives, confirmed reset | Built and browser-tested |
 | Customers | Placeholder |
@@ -77,6 +78,10 @@ Stock count ──► Count record + movement for the difference
 Every action ──► Audit entry
 ```
 
+- **Business analysis** (`src/lib/analytics.ts`, pure functions) is worked out from the actual records. **Estimated gross profit** = sales minus the cost price saved on each sale item when it was sold, so later cost changes don't rewrite it and cancelled sales are excluded. It is an estimate: it ignores rent, wages and other expenses, and uses the product's recorded cost, not the cost of the particular delivery.
+- **Restock suggestions** are a simple rule, not a forecast: enough for 14 days at the last two weeks' average daily sales, plus the product's minimum, less stock and less what is already on order.
+- **Needs attention** shows each kind (out or low, count shortages, purchases not fully received, slow stock) so one kind can't push another off the list.
+- Archived products are left out of inventory value, alerts and restock suggestions.
 - A sale is **validated** (whole quantities above zero, no overselling) and saved with its items, movements and audit entry in **one transaction**, so it saves completely or not at all.
 - Prices are copied onto each sale item. Changing a product price later does not change past sales.
 - Cancelling a sale does not delete it. It marks the sale cancelled and adds `return` movements that put the stock back.
@@ -116,9 +121,10 @@ src/
 ├── main.tsx
 ├── components/
 │   ├── AppShell.tsx     Sidebar, header, bottom navigation
-│   └── ui.tsx           Card, Badge, buttons, empty state
+│   ├── ui.tsx           Card, Badge, buttons, empty state
+│   └── dashboard/       Summary, Attention, Trends, TopProducts, StockAnalysis, ActivityFeed
 ├── pages/
-│   ├── Dashboard.tsx
+│   ├── Dashboard.tsx    Composes the dashboard sections
 │   ├── Sales.tsx        New sale, receipt, history, cancel
 │   ├── Inventory.tsx    Stock list and stock count
 │   ├── Products.tsx     Product list, filters, categories
@@ -131,7 +137,8 @@ src/
 │   ├── SupplierDetail.tsx
 │   └── Placeholder.tsx  Stand-in for unbuilt screens
 └── lib/
-    ├── engine.ts        Sales, counts, validation, dashboard (pure)
+    ├── engine.ts        Sales, counts, validation, stock rules (pure)
+    ├── analytics.ts     Profit, trends, top products, restock, attention, activity (pure)
     ├── store.ts         Dexie database, atomic writes, data hook
     ├── seed.ts          Demo data
     ├── format.ts        Money and time formatting
@@ -156,6 +163,8 @@ The dashboard borrows layout patterns from the Innap admin template. This projec
 
 - Data lives only in this browser (IndexedDB). It is not synced or backed up, and clearing site data or uninstalling erases it. The app says so in the header, a banner and Settings. The browser may still clear it when space is low; the app asks it not to and Settings shows whether that was granted.
 - Data is demo data. Staff are fixed placeholders (`CURRENT_STAFF` in `src/config.ts`) until sign-in exists, so "who did it" is not yet trustworthy.
+- Count mismatches shown are shortages only (surplus counts are recorded but not flagged). The attention list has no due dates, so "late" deliveries are shown by age only.
+- The dashboard page is long on a phone. Sections are ordered by urgency, but there is no way to hide or reorder them yet.
 - Quantities are whole numbers only, so the unit list is whole units (piece, pack, bottle, carton, bag, box, dozen). Weighed units such as kg and litres need decimal quantities and are not offered yet.
 - Receipt numbers count up on one device. With several devices they could collide, so the server will need to assign them.
 - Any signed-in-looking user can cancel a sale or adjust stock. Roles and permissions come with authentication.
