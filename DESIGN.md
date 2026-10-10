@@ -235,6 +235,20 @@ What was deliberately *not* taken: chat, email, calendar, the many chart librari
 
 ---
 
+## 10d. Dashboard
+
+Order on a phone follows urgency: summary, Needs attention, sales and profit, top products, stock analysis, activity. On wide screens the chart sits beside Needs attention.
+
+- **Summary cards:** today's sales, estimated gross profit, inventory value (at cost), low stock (with how many are out).
+- **Needs attention:** each kind has its own share of the list (low or out, count mismatch, partly received or awaiting delivery), then a Slow row that opens the filtered Inventory list. Every row opens the product or purchase it is about.
+- **Sales and profit:** 7 or 30 days. Sales are a solid line, estimated gross profit a dashed line, with a text legend. Chart animation is off. A one-line note explains that profit is an estimate.
+- **Top products:** ranked table with units, sales, profit and margin, sortable by sales, profit or units, with a bar for the chosen measure.
+- **Stock analysis:** Restock, Slow-moving, Inventory value tabs. On a phone secondary columns are hidden so nothing scrolls sideways; they appear from the small breakpoint up.
+- **Activity:** grouped by day, filterable (Sales, Deliveries, Cancellations, Adjustments & counts), 12 at a time. Each row: who, what, a type tag, the amount and the time.
+- **Rule:** no screen may scroll sideways at 390px. The browser test checks this.
+
+---
+
 ## 11. Known issues and open decisions
 
 1. **Active-nav and avatar contrast is 4.43:1 (needs 4.5:1).** `#C72C72` on `#FCE7F3`. A verified fix: change `--primary-dark` to **`#C0286B`** (4.75:1 on soft pink, 5.59:1 on white and as a button fill). One variable, no component changes.
