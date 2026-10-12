@@ -3,7 +3,7 @@
 Offline-first stock management for small shops. It does not just record stock. It tells the owner what needs attention.
 
 > **Stockly is a temporary name.** Change `APP_NAME` in `src/config.ts` to rename it.
-> **Status:** v0.6.0, early development. Dashboard, Sales, Inventory (stock count), Products and Purchases (with Suppliers) are built. Data is demo data stored in your browser.
+> **Status:** v0.6.1, early development. Dashboard, Sales, Inventory (stock count), Products and Purchases (with Suppliers) are built. Data is demo data stored in your browser.
 
 ---
 
@@ -53,7 +53,7 @@ npm run dev        # development server
 |---|---|
 | `npm run dev` | Start the dev server |
 | `npm run build` | Type-check, then produce a production build in `dist/` |
-| `npm test` | Run the engine and storage tests |
+| `npm test` | Run the engine, storage, analytics and colour-contrast tests |
 | `node e2e/phone-checks.mjs` | Phone-size browser checks (needs Playwright, see the top of the file): offline sales, reopen, stock arithmetic, slow stock, data messaging |
 | `npm run preview` | Serve the production build. **Use this to test install and offline**, because the service worker is only generated in the production build |
 
@@ -176,7 +176,6 @@ The dashboard borrows layout patterns from the Innap admin template. This projec
 - No supplier balances, payments or accounts payable (kept out on purpose until research shows they matter).
 - Only a draft purchase can be edited. An ordered purchase's lines are locked.
 - The PWA icons are placeholders. Replace them in `public/` before launch.
-- The active sidebar item and avatar initials are slightly under the 4.5:1 contrast minimum. See DESIGN.md for the one-line fix.
 - The bundle is about 680 KB (203 KB gzipped). Split by route as screens are added.
 - No authentication, roles or multi-business isolation yet. Do not store real business data in this version.
 

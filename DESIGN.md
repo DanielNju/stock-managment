@@ -37,7 +37,8 @@ All colors live in **one place**: the `:root` block of `src/index.css`. They are
 | Token | Tailwind class | Light | Dark | Use |
 |---|---|---|---|---|
 | `--primary` | `primary` | `#E83E8C` | same | Fills, icons, charts, focus ring. **Not for small text.** |
-| `--primary-dark` | `pdark` | `#C72C72` | `#F472B6` | Text, links, active nav, button fills |
+| `--primary-dark` | `pdark` | `#C0286B` | `#F472B6` | Text, links, active nav, avatars, button fills |
+| `--on-primary` | `onp` | `#FFFFFF` | `#0F1115` | Text on a `pdark` fill (primary buttons). Dark in dark mode, because `pdark` is light there |
 | `--primary-soft` | `soft` | `#FCE7F3` | `#3A1A2B` | Active nav background, avatars, hover |
 | `--bg` | `bg` | `#FAFAFA` | `#0F1115` | Page background |
 | `--surface` | `surface` | `#FFFFFF` | `#181B21` | Cards, header, sidebar |
@@ -50,7 +51,7 @@ All colors live in **one place**: the `:root` block of `src/index.css`. They are
 
 **Rule:** to change the brand pink, edit the three `--primary*` variables. If you find a hex value in a component, that is a bug.
 
-Dark mode follows the device (`prefers-color-scheme`). There is no manual toggle yet.
+Dark mode follows the device (`prefers-color-scheme`). There is no manual toggle yet. It is tested for contrast like light mode.
 
 ### Contrast (WCAG 2.1, measured)
 
@@ -60,11 +61,12 @@ Normal text needs **4.5:1**, large text and UI components **3:1**.
 |---|---:|---|
 | Body text on background | 14.06 | Pass |
 | Muted text on white / on background | 4.83 / 4.63 | Pass |
-| White on `#C72C72` (button) | 5.21 | Pass |
-| `#C72C72` text on white | 5.21 | Pass |
+| White on `#C0286B` (button, light mode) | 5.59 | Pass |
+| `#C0286B` text on white | 5.59 | Pass |
 | White on `#E83E8C` | 3.82 | **Fails for text.** Fills and icons only |
 | `#E83E8C` text on white | 3.82 | **Fails for text** |
-| **`#C72C72` on `#FCE7F3` (active nav, avatars)** | **4.43** | **Fails by a hair** (see Known issues) |
+| `#C0286B` on `#FCE7F3` (active nav, avatars, selected toggles) | 4.75 | Pass (the earlier `#C72C72` was 4.43 and failed) |
+| Dark mode: `#0F1115` on `#F472B6` (button) | 7.13 | Pass (white on that pink was 2.65 and failed) |
 | Success / warning / danger on white | 5.02 / 5.02 / 4.83 | Pass |
 | Dark mode: pink, muted, status colors on surface | 6.2 to 10.3 | Pass |
 
@@ -175,7 +177,7 @@ A discrepancy is always **Check** (amber), never orange or red. Keep the status 
 
 | Component | Rule |
 |---|---|
-| Primary button | `bg-pdark` with white text, `rounded-xl`, 48px tall. Never white text on the bright pink. |
+| Primary button | `bg-pdark text-onp`, `rounded-xl`, 48px tall. Never a hard-coded `text-white`, and never text on the bright pink. |
 | Card | `rounded-2xl`, 1px `line` border, `surface` background. Use cards for summaries, not for every list. |
 | Badge | Outlined pill, icon plus word, colored by status. |
 | Avatar | Initial on `bg-soft`. |
@@ -251,7 +253,7 @@ Order on a phone follows urgency: summary, Needs attention, sales and profit, to
 
 ## 11. Known issues and open decisions
 
-1. **Active-nav and avatar contrast is 4.43:1 (needs 4.5:1).** `#C72C72` on `#FCE7F3`. A verified fix: change `--primary-dark` to **`#C0286B`** (4.75:1 on soft pink, 5.59:1 on white and as a button fill). One variable, no component changes.
+1. ~~Active-nav and avatar contrast was 4.43:1.~~ **Fixed.** `--primary-dark` is now `#C0286B`, and dark-mode buttons use `--on-primary`. `src/lib/contrast.test.ts` checks 15 text/background pairs in both modes, and `e2e/phone-checks.mjs` measures rendered elements in both modes.
 2. **PWA icons are placeholders.** Replace `public/icon-192.png`, `icon-512.png` and `icon.svg` with real brand icons before launch.
 3. **Only the Dashboard is built.** Next: Sales (phone-first), then Stock Count so the "Stock issues" counter has real data.
 4. **Bundle is about 680 KB** (203 KB gzipped). Split by route when more screens exist.
