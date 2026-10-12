@@ -1,8 +1,10 @@
 import { Route, Routes } from "react-router-dom";
 import AppShell from "./components/AppShell";
+import CustomerDetail from "./pages/CustomerDetail";
+import CustomerForm from "./pages/CustomerForm";
+import Customers from "./pages/Customers";
 import Dashboard from "./pages/Dashboard";
 import Inventory from "./pages/Inventory";
-import Placeholder from "./pages/Placeholder";
 import ProductDetail from "./pages/ProductDetail";
 import ProductForm from "./pages/ProductForm";
 import Products from "./pages/Products";
@@ -29,24 +31,16 @@ export default function App() {
         <Route path="products/:id/edit" element={<ProductForm mode="edit" />} />
         <Route path="purchases" element={<Purchases />} />
         <Route path="purchases/new" element={<PurchaseForm mode="new" />} />
-        <Route
-          path="purchases/suppliers/new"
-          element={<SupplierForm mode="new" />}
-        />
+        <Route path="purchases/suppliers/new" element={<SupplierForm mode="new" />} />
         <Route path="purchases/suppliers/:id" element={<SupplierDetail />} />
-        <Route
-          path="purchases/suppliers/:id/edit"
-          element={<SupplierForm mode="edit" />}
-        />
+        <Route path="purchases/suppliers/:id/edit" element={<SupplierForm mode="edit" />} />
         <Route path="purchases/:id" element={<PurchaseDetail />} />
-        <Route
-          path="purchases/:id/edit"
-          element={<PurchaseForm mode="edit" />}
-        />
+        <Route path="purchases/:id/edit" element={<PurchaseForm mode="edit" />} />
         <Route path="settings" element={<Settings />} />
-        {["customers"].map((p) => (
-          <Route key={p} path={p} element={<Placeholder name={p} />} />
-        ))}
+        <Route path="customers" element={<Customers />} />
+        <Route path="customers/new" element={<CustomerForm mode="new" />} />
+        <Route path="customers/:id" element={<CustomerDetail />} />
+        <Route path="customers/:id/edit" element={<CustomerForm mode="edit" />} />
       </Route>
     </Routes>
   );

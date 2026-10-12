@@ -251,6 +251,16 @@ Order on a phone follows urgency: summary, Needs attention, sales and profit, to
 
 ---
 
+## 10e. Customers and Settings
+
+- **Customers list:** ranked by what each customer has spent. Each row: name, phone, number of purchases and when they last bought, and the total spent. Search by name or phone. Archived customers are behind a checkbox.
+- **Customer page:** total spent, purchases, average sale, last purchase, contact details, then the purchase history (receipt, items, who served them, cancelled sales struck through). "New sale for {first name}" opens Sales with that customer chosen.
+- **On a sale:** an optional Customer dropdown above the payment buttons ("Walk-in customer" by default) with "+ New customer" (name and phone) so nobody has to leave the sale.
+- **Settings:** four cards. Your business (name, phone, location), Staff (who is using this device, add, archive, delete if unused), Where your data is, Reset demo data (two taps).
+- **Who is using this device:** the round avatar in the header opens Settings and its label says who actions are recorded under. The dashboard greeting uses the same name.
+
+---
+
 ## 11. Known issues and open decisions
 
 1. ~~Active-nav and avatar contrast was 4.43:1.~~ **Fixed.** `--primary-dark` is now `#C0286B`, and dark-mode buttons use `--on-primary`. `src/lib/contrast.test.ts` checks 15 text/background pairs in both modes, and `e2e/phone-checks.mjs` measures rendered elements in both modes.

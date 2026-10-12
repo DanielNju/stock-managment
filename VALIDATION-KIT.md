@@ -29,6 +29,8 @@ Do this alone, on a phone, and write the numbers down. Every stock change must a
 | 11 | Open Settings | Says the data is not synced or backed up, and other phones can't see it | |
 | 13 | Dashboard: sell 3 of any product, then cancel it | Today's sales and gross profit go up by price and (price − cost) × 3, then return to where they were | |
 | 14 | Dashboard on a phone: scroll to the bottom | Nothing runs off the right edge of the screen | |
+| 15 | Customers: add one, sell to them, open their page; then cancel that sale | Total spent shows the sale, then returns to 0 after the cancel. Delete is not offered while they have purchases | |
+| 16 | Settings: add a person, switch the device to them, make a sale | The header avatar and dashboard greeting show their name, and Recent activity says they sold it | |
 | 12 | Dashboard: tap the Slow row | Lists Soap Bar and Biscuits Pack with days since last sale | |
 
 Anything that does not match is a bug. Fix those before testing with owners. Steps 9 to 12 are also covered by `node e2e/phone-checks.mjs`.
@@ -58,6 +60,8 @@ Hand them the phone. Read each task out loud. Do not say which button to press.
 | T8 | "Which products have not sold for a month?" | Opens the Slow row on the dashboard or the Slow-moving filter in Inventory and names them |
 | T10 | "You have KES 20,000 to spend on stock today. What would you buy?" | Uses the Restock table or Needs attention, and says whether the suggestions make sense to them |
 | T11 | "Did you make a profit this week? Which product earns you the most?" | Finds the Sales and profit section and Top products, and says whether the profit figure matches how they think about it |
+| T12 | "Wanjiru is a regular. Record a sale for her, then show me what she has bought from you." | Chooses the customer on the sale (or adds one), then finds the customer page and the purchase |
+| T13 | "Your attendant Wanjiku will use this phone this afternoon. Set it up so her sales are recorded under her name." | Adds her in Settings and switches the device to her |
 | T9 | "If you open this on your brother's phone, will he see these sales?" | Understands the data stays on this phone (check whether they read the banner) |
 
 For each task record: **Done alone / Done after a hint / Failed**, the time it took, and what they said.
@@ -81,6 +85,10 @@ Ask these in the warm-up, before the app comes out.
 3. How much was owed to you last month? How much did you not get back?
 4. Have you ever lost track of a balance or had a disagreement about one?
 5. Do you give credit to everyone, or only some customers? Who decides?
+
+**Customers**
+12. Do you know your regular customers by name? Do you write down what they buy?
+13. Would you want to see what a customer has bought from you over time? What would you do with that?
 
 **Other problems**
 6. What happens when a product runs out? When did you last lose a sale because of it?
