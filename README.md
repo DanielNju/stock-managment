@@ -3,7 +3,7 @@
 Offline-first stock management for small shops. It does not just record stock. It tells the owner what needs attention.
 
 > **Stockly is a temporary name.** Change `APP_NAME` in `src/config.ts` to rename it.
-> **Status:** v0.6.1, early development. Dashboard, Sales, Inventory (stock count), Products and Purchases (with Suppliers) are built. Data is demo data stored in your browser.
+> **Status:** v0.7.0, early development. Dashboard, Sales, Inventory (stock count), Products and Purchases (with Suppliers) are built. Data is demo data stored in your browser.
 
 ---
 
@@ -37,7 +37,8 @@ Every stock change is recorded as a **movement** (a sale, a purchase, an adjustm
 | Dashboard: summary cards (today's sales, estimated gross profit, inventory value, low stock), prioritised Needs attention, sales and profit chart (7 or 30 days), top products by sales, profit or units, stock analysis tables (restock, slow-moving, value by category), filterable activity feed | Built, unit-tested and browser-tested |
 | Slow-moving stock: dashboard row leads to a filtered Inventory list with days since last sale; new products are not flagged | Built and browser-tested |
 | "Saved on this device only" header, offline indicator, demo banner on every screen, Settings page explaining where data lives, confirmed reset | Built and browser-tested |
-| Customers | Placeholder |
+| Customers: add, edit, archive, delete (only with no purchases), optional on any sale, purchase history, total spent, average sale, last purchase | Built and tested |
+| Settings: business details, staff list, who is using this device (recorded on every sale, count and delivery), data and storage explanation, confirmed reset | Built and tested |
 | Sign-in and roles, business isolation, sync, backend API | Not started |
 
 ## Quick start
@@ -82,6 +83,8 @@ Every action ──► Audit entry
 - **Restock suggestions** are a simple rule, not a forecast: enough for 14 days at the last two weeks' average daily sales, plus the product's minimum, less stock and less what is already on order.
 - **Needs attention** shows each kind (out or low, count shortages, purchases not fully received, slow stock) so one kind can't push another off the list.
 - Archived products are left out of inventory value, alerts and restock suggestions.
+- **Customers** are optional on a sale (walk-in sales need no name). A customer's totals count completed sales only, so a cancelled sale drops out. The same Kenyan phone number written as `0712…`, `+254 712…` or `254712…` counts as one number, so it can't be added twice. Two people may share a name (the app warns). A customer with purchases can be archived but not deleted.
+- **Staff:** the people list lives in Settings, and the device is set to one of them. Every sale, count and delivery made on that device is recorded under that name. There are no passwords yet, so anyone using the app can switch, and a name can't be changed once created (past records keep the name they were made under). The first person on an older database is created from the names already on its records.
 - A sale is **validated** (whole quantities above zero, no overselling) and saved with its items, movements and audit entry in **one transaction**, so it saves completely or not at all.
 - Prices are copied onto each sale item. Changing a product price later does not change past sales.
 - Cancelling a sale does not delete it. It marks the sale cancelled and adds `return` movements that put the stock back.
@@ -135,9 +138,12 @@ src/
 │   ├── PurchaseDetail.tsx Lines, receive stock, deliveries, cancel
 │   ├── SupplierForm.tsx
 │   ├── SupplierDetail.tsx
+│   ├── Customers.tsx, CustomerForm.tsx, CustomerDetail.tsx
+│   ├── Settings.tsx     Business, staff, device user, data, reset
 │   └── Placeholder.tsx  Stand-in for unbuilt screens
 └── lib/
     ├── engine.ts        Sales, counts, validation, stock rules (pure)
+    ├── people.ts        Customers, staff, business profile rules (pure)
     ├── analytics.ts     Profit, trends, top products, restock, attention, activity (pure)
     ├── store.ts         Dexie database, atomic writes, data hook
     ├── seed.ts          Demo data
@@ -162,13 +168,13 @@ The dashboard borrows layout patterns from the Innap admin template. This projec
 ## Known limitations
 
 - Data lives only in this browser (IndexedDB). It is not synced or backed up, and clearing site data or uninstalling erases it. The app says so in the header, a banner and Settings. The browser may still clear it when space is low; the app asks it not to and Settings shows whether that was granted.
-- Data is demo data. Staff are fixed placeholders (`CURRENT_STAFF` in `src/config.ts`) until sign-in exists, so "who did it" is not yet trustworthy.
+- Data is demo data. "Who did it" is only as trustworthy as the person who set the device: there is no sign-in or password, so anyone can switch the device user in Settings.
 - Count mismatches shown are shortages only (surplus counts are recorded but not flagged). The attention list has no due dates, so "late" deliveries are shown by age only.
 - The dashboard page is long on a phone. Sections are ordered by urgency, but there is no way to hide or reorder them yet.
 - Quantities are whole numbers only, so the unit list is whole units (piece, pack, bottle, carton, bag, box, dozen). Weighed units such as kg and litres need decimal quantities and are not offered yet.
 - Receipt numbers count up on one device. With several devices they could collide, so the server will need to assign them.
 - Any signed-in-looking user can cancel a sale or adjust stock. Roles and permissions come with authentication.
-- Credit sales are not available until Customers is built.
+- No customer credit, balances or payments. Customers are records and purchase history only, on purpose, until research shows credit is needed. The sale already stores the customer, so credit can be added on top.
 - Upgrading from an earlier version clears the browser's demo data and reloads fresh demo data (v0.3 changed product IDs). Once real data exists, upgrades will need proper migrations.
 - Products have no images, variants or multiple suppliers yet.
 - Receiving does not change a product's cost price. Whether to use the latest cost or an average is still to be decided.
@@ -192,3 +198,10 @@ The dashboard borrows layout patterns from the Innap admin template. This projec
 ## License
 
 Not yet chosen.
+
+## Deploying (Vercel or any static host)
+
+- Build command `npm run build`, output folder `dist`.
+- `vercel.json` rewrites every path to `index.html`. Without it, opening or refreshing a deep link such as `/customers` returns a 404, because only `index.html` exists on the server. After deploying, open `/customers` directly in a new tab to confirm.
+- The app updates itself in the background. After you deploy a new version, people may need to close and reopen the app once, or reload twice, to get it.
+- Each phone keeps its own data. Redeploying does not touch what is already stored on a phone, and upgrades add new tables without clearing the old ones.
