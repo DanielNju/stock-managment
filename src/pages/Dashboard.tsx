@@ -29,7 +29,7 @@ export default function Dashboard() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div><h1 className="text-2xl font-bold sm:text-3xl">{greeting}, James</h1><p className="text-muted">Here's what's happening today.</p></div>
-        <button onClick={() => nav("/sales")} className="inline-flex min-h-12 items-center gap-2 rounded-xl bg-pdark px-5 font-semibold text-white"><Plus size={20} />New sale</button>
+        <button onClick={() => nav("/sales")} className="inline-flex min-h-12 items-center gap-2 rounded-xl bg-pdark px-5 font-semibold text-onp"><Plus size={20} />New sale</button>
       </div>
       <Summary today={a.today.sales} delta={d.delta} profit={a.today.profit} margin={a.today.margin} stockValue={d.stockValue} productCount={d.productCount} lowCount={d.low.length} outCount={d.low.filter((i) => i.status === "out").length} />
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">

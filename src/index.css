@@ -2,8 +2,9 @@
 
 :root {
   --primary: #e83e8c;
-  --primary-dark: #c72c72;
+  --primary-dark: #c0286b;
   --primary-soft: #fce7f3;
+  --on-primary: #ffffff; /* text on a --primary-dark fill (buttons) */
   --bg: #fafafa;
   --surface: #ffffff;
   --text: #1f2937;
@@ -15,22 +16,15 @@
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0f1115;
-    --surface: #181b21;
-    --text: #f3f4f6;
-    --muted: #9ca3af;
-    --border: #2a2f38;
-    --primary-soft: #3a1a2b;
-    --primary-dark: #f472b6;
-    --success: #4ade80;
-    --warning: #fbbf24;
-    --danger: #f87171;
+    --bg: #0f1115; --surface: #181b21; --text: #f3f4f6; --muted: #9ca3af; --border: #2a2f38;
+    --primary-soft: #3a1a2b; --primary-dark: #f472b6; --on-primary: #0f1115; --success: #4ade80; --warning: #fbbf24; --danger: #f87171;
   }
 }
 @theme inline {
   --color-primary: var(--primary);
   --color-pdark: var(--primary-dark);
   --color-soft: var(--primary-soft);
+  --color-onp: var(--on-primary);
   --color-bg: var(--bg);
   --color-surface: var(--surface);
   --color-ink: var(--text);
@@ -41,12 +35,5 @@
   --color-bad: var(--danger);
   --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
-body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: var(--font-sans);
-}
-:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
-}
+body { background: var(--bg); color: var(--text); font-family: var(--font-sans); }
+:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }

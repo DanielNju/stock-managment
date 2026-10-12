@@ -1,4 +1,4 @@
-// Phone-size end-to-end checks: dashboard numbers, slow stock, offline sales, stock arithmetic, "saved on this device" messaging, no sideways scrolling.
+// Phone-size end-to-end checks: dashboard numbers, slow stock, offline sales, stock arithmetic, "saved on this device" messaging, colour contrast in light and dark mode, no sideways scrolling.
 // Run:  npm i -D playwright && npx playwright install chromium && npm run build
 //       npx vite preview --port 4173 &   then   node e2e/phone-checks.mjs
 import { chromium as pw } from "playwright";
@@ -183,6 +183,29 @@ await check("7. no screen scrolls sideways on a 390px phone", async () => {
     if (w.sw > w.cw + 1) bad.push(`${path} is ${w.sw}px wide`);
   }
   if (bad.length) throw new Error(bad.join("; "));
+});
+await check("8. text contrast is at least 4.5:1 on rendered elements, in light AND dark mode", async () => {
+  await nav(page, "Dashboard"); await page.getByText("Needs attention").first().waitFor();
+  const targets = [["header avatar", 'header [aria-label="James"]'], ["active nav item", 'nav[aria-label="Main"] a[aria-current="page"]'], ["primary button", 'main button[class*="bg-pdark"]'],
+    ["activity avatar", 'section[aria-label] li span[aria-hidden="true"]'], ["selected toggle", 'button[aria-pressed="true"]'], ["status badge", 'span[class*="text-bad"]'], ["demo banner", '[role="note"]'], ["secondary text", "p.text-muted"]];
+  const measure = (sel) => page.evaluate((q) => {
+    const el = document.querySelector(q); if (!el) return null;
+    const g = Object.assign(document.createElement("canvas"), { width: 1, height: 1 }).getContext("2d", { willReadFrequently: true });
+    const px = (c) => { g.clearRect(0, 0, 1, 1); g.fillStyle = "#000"; g.fillStyle = c; g.fillRect(0, 0, 1, 1); return [...g.getImageData(0, 0, 1, 1).data]; };
+    const lum = ([r, gg, b]) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }; return 0.2126 * f(r) + 0.7152 * f(gg) + 0.0722 * f(b); };
+    const fg = px(getComputedStyle(el).color); let n = el, bg = null;
+    while (n) { const c = px(getComputedStyle(n).backgroundColor); if (c[3] === 255) { bg = c; break; } n = n.parentElement; }
+    bg = bg || px(getComputedStyle(document.body).backgroundColor);
+    const [a, b] = [lum(fg), lum(bg)].sort((x, y) => y - x); return (a + 0.05) / (b + 0.05);
+  }, sel);
+  const bad = [], seen = [];
+  for (const scheme of ["light", "dark"]) {
+    await page.emulateMedia({ colorScheme: scheme }); await page.waitForTimeout(200);
+    for (const [name, sel] of targets) { const r = await measure(sel); if (r === null) { bad.push(`${scheme}: could not find ${name}`); continue; } seen.push(`${scheme}/${name} ${r.toFixed(1)}`); if (r < 4.5) bad.push(`${scheme}: ${name} is ${r.toFixed(2)}:1`); }
+  }
+  await page.emulateMedia({ colorScheme: "light" });
+  if (bad.length) throw new Error(bad.join("; "));
+  return `${seen.length} measurements, lowest ${Math.min(...seen.map((x) => Number(x.split(" ").pop()))).toFixed(1)}:1`;
 });
 let receipt, stockBefore;
 await check("2a. offline: a sale completes, and the screen says you are offline", async () => {
