@@ -2,8 +2,8 @@
 
 Offline-first stock management for small shops. It does not just record stock. It tells the owner what needs attention.
 
-> **Stockly is a temporary name.** Change `APP_NAME` in `src/config.ts` to rename it.
-> **Status:** v0.7.0, early development. Dashboard, Sales, Inventory (stock count), Products and Purchases (with Suppliers) are built. Data is demo data stored in your browser.
+> **The name is a placeholder.** Change it in `brand.json` (not in the code). Other inventory apps called "Stockly" already exist on Google Play, so pick a distinctive name before you publish.
+> **Status:** v0.8.0. Feature-complete for a first release and **ready to be packaged for Google Play** (see `store/PLAY-STORE-GUIDE.md`). It starts empty for a real shop, has backup and restore, and installs as an app. It still has no sign-in, server copy or sync, so every phone holds its own data.
 
 ---
 
@@ -37,6 +37,9 @@ Every stock change is recorded as a **movement** (a sale, a purchase, an adjustm
 | Dashboard: summary cards (today's sales, estimated gross profit, inventory value, low stock), prioritised Needs attention, sales and profit chart (7 or 30 days), top products by sales, profit or units, stock analysis tables (restock, slow-moving, value by category), filterable activity feed | Built, unit-tested and browser-tested |
 | Slow-moving stock: dashboard row leads to a filtered Inventory list with days since last sale; new products are not flagged | Built and browser-tested |
 | "Saved on this device only" header, offline indicator, demo banner on every screen, Settings page explaining where data lives, confirmed reset | Built and browser-tested |
+| First run: setup screen (shop name, your name) starts empty; demo data only if asked | Built and browser-tested |
+| Backup and restore: one file with everything, validated before it replaces anything, safe erase (type DELETE), last-backup reminder | Built, unit-tested and browser-tested |
+| Store readiness: complete manifest, icons incl. maskable, screenshots, privacy policy page, release checker, store assets and listing text | Built; Chrome installability and offline verified |
 | Customers: add, edit, archive, delete (only with no purchases), optional on any sale, purchase history, total spent, average sale, last purchase | Built and tested |
 | Settings: business details, staff list, who is using this device (recorded on every sale, count and delivery), data and storage explanation, confirmed reset | Built and tested |
 | Sign-in and roles, business isolation, sync, backend API | Not started |
@@ -167,8 +170,8 @@ The dashboard borrows layout patterns from the Innap admin template. This projec
 
 ## Known limitations
 
-- Data lives only in this browser (IndexedDB). It is not synced or backed up, and clearing site data or uninstalling erases it. The app says so in the header, a banner and Settings. The browser may still clear it when space is low; the app asks it not to and Settings shows whether that was granted.
-- Data is demo data. "Who did it" is only as trustworthy as the person who set the device: there is no sign-in or password, so anyone can switch the device user in Settings.
+- Data lives only in this browser (IndexedDB). It is not synced or backed up, and clearing site data or uninstalling erases it. The app says so in the header, a banner and Settings. The browser may still clear it when space is low; the app asks it not to and Settings shows whether that was granted. **Back up regularly:** Settings > Download backup makes one file with everything, and Restore brings it back on any phone.
+- "Who did it" is only as trustworthy as the person who set the device: there is no sign-in or password, so anyone can switch the device user in Settings.
 - Count mismatches shown are shortages only (surplus counts are recorded but not flagged). The attention list has no due dates, so "late" deliveries are shown by age only.
 - The dashboard page is long on a phone. Sections are ordered by urgency, but there is no way to hide or reorder them yet.
 - Quantities are whole numbers only, so the unit list is whole units (piece, pack, bottle, carton, bag, box, dozen). Weighed units such as kg and litres need decimal quantities and are not offered yet.
@@ -183,7 +186,7 @@ The dashboard borrows layout patterns from the Innap admin template. This projec
 - Only a draft purchase can be edited. An ordered purchase's lines are locked.
 - The PWA icons are placeholders. Replace them in `public/` before launch.
 - The bundle is about 680 KB (203 KB gzipped). Split by route as screens are added.
-- No authentication, roles or multi-business isolation yet. Do not store real business data in this version.
+- No sign-in, roles, server copy, multi-device sync or multi-business isolation. Real shops can use it, but only with regular backups. The app does not encrypt the data or the backup files.
 
 ## Roadmap
 
@@ -199,9 +202,20 @@ The dashboard borrows layout patterns from the Innap admin template. This projec
 
 Not yet chosen.
 
+## Releasing to Google Play
+
+Everything is in `store/`. Start with **`store/PLAY-STORE-GUIDE.md`**. In short:
+
+1. Edit `brand.json`: name, `packageId` (permanent once uploaded), developer name, contact email.
+2. `npm run build` (also writes `public/privacy.html` from `brand.json`), then `npm run check:release` to see what is still missing.
+3. Re-take the store images if you changed the name: `python3 scripts/make-icons.py` and `node scripts/make-store-assets.mjs http://localhost:4176` (needs Playwright).
+4. Deploy, build the Android package at pwabuilder.com, add `/.well-known/assetlinks.json`, and follow the Play Console steps in the guide.
+
+What I could not do from here: build the `.aab`, create the Play account, or test on a real phone or on Play.
+
 ## Deploying (Vercel or any static host)
 
 - Build command `npm run build`, output folder `dist`.
-- `vercel.json` rewrites every path to `index.html`. Without it, opening or refreshing a deep link such as `/customers` returns a 404, because only `index.html` exists on the server. After deploying, open `/customers` directly in a new tab to confirm.
+- `vercel.json` rewrites every path to `index.html` (real files such as `/privacy.html` and `/.well-known/…` are still served as files) and stops the service worker and manifest from being cached. Without it, opening or refreshing a deep link such as `/customers` returns a 404, because only `index.html` exists on the server. After deploying, open `/customers` directly in a new tab to confirm.
 - The app updates itself in the background. After you deploy a new version, people may need to close and reopen the app once, or reload twice, to get it.
 - Each phone keeps its own data. Redeploying does not touch what is already stored on a phone, and upgrades add new tables without clearing the old ones.

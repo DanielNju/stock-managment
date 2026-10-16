@@ -261,6 +261,17 @@ Order on a phone follows urgency: summary, Needs attention, sales and profit, to
 
 ---
 
+## 10f. First run, backup and privacy
+
+- **Setup screen** (first launch only): shop name and your name, one Start button. Under it, plain sentences that the data stays on this phone and is not backed up automatically, a privacy link, **Restore from a backup**, and **Load demo data** for people who are only looking. No demo data appears unless it is asked for.
+- **Banner** (below the header): *Demo data* in demo mode; otherwise *Saved on this device only, not synced or backed up automatically*, with the last backup date. It becomes bold when there is no backup or the last one is over 7 days old, and its link goes to Settings.
+- **Back up your data** (Settings): the last backup date, **Download backup**, **Share backup** where the phone supports sharing a file, and **Restore from a backup**. Restoring shows what the file contains and, if there is existing data, a clear warning before anything is replaced.
+- **Erase all data:** needs the word DELETE typed. In demo mode it is a simpler two-tap reset.
+- After setup, restore or erase the app always returns to the dashboard.
+- **Privacy policy:** a plain static page at `/privacy.html`, generated from `brand.json`.
+
+---
+
 ## 11. Known issues and open decisions
 
 1. ~~Active-nav and avatar contrast was 4.43:1.~~ **Fixed.** `--primary-dark` is now `#C0286B`, and dark-mode buttons use `--on-primary`. `src/lib/contrast.test.ts` checks 15 text/background pairs in both modes, and `e2e/phone-checks.mjs` measures rendered elements in both modes.

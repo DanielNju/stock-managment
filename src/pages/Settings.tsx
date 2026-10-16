@@ -1,21 +1,40 @@
-import { useEffect, useState } from "react";
-import { useOutletContext } from "react-router-dom";
-import { AlertTriangle, Check, HardDrive } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useOutletContext } from "react-router-dom";
+import { AlertTriangle, Check, Download, HardDrive, Share2 } from "lucide-react";
+import { APP_NAME } from "../config";
+import { backupFileName } from "../lib/backup";
+import { APP_VERSION } from "../lib/version";
+import { daysAgo } from "../lib/format";
+import RestoreBackup from "../components/RestoreBackup";
 import { staffInUse } from "../lib/people";
 import { deviceStaffName, type StockCtx } from "../lib/store";
 import { Badge, Card, Errors, btnGhost, btnPrimary, fieldCls } from "../components/ui";
 
 export default function Settings() {
-  const { state, updateBusiness, createStaff, setStaffArchived, deleteStaff, setDeviceStaff, resetDemo } = useOutletContext<StockCtx>();
+  const ctx = useOutletContext<StockCtx>();
+  const nav = useNavigate();
+  const { state, updateBusiness, createStaff, setStaffArchived, deleteStaff, setDeviceStaff, eraseAll, exportBackup, markBackedUp } = ctx;
   const [biz, setBiz] = useState<{ name: string; phone: string; location: string } | null>(null);
   const [saved, setSaved] = useState(false), [bizErr, setBizErr] = useState<string[]>([]);
   const [newName, setNewName] = useState(""), [staffErr, setStaffErr] = useState<string[]>([]);
-  const [persisted, setPersisted] = useState<boolean | null>(null), [confirm, setConfirm] = useState(false);
+  const [persisted, setPersisted] = useState<boolean | null>(null), [confirm, setConfirm] = useState(false), [typed, setTyped] = useState("");
+  const [bk, setBk] = useState<{ ok?: string; err?: string }>({});
+  const canShare = useMemo(() => typeof navigator !== "undefined" && typeof navigator.canShare === "function" && navigator.canShare({ files: [new File(["x"], "x.json", { type: "application/json" })] }), []);
   useEffect(() => { void navigator.storage?.persisted?.().then(setPersisted).catch(() => setPersisted(null)); }, []);
   useEffect(() => { if (state && !biz) setBiz({ name: state.business.name, phone: state.business.phone ?? "", location: state.business.location ?? "" }); }, [state, biz]);
   if (!state || !biz) return <p className="text-muted">Loading settings…</p>;
   const memory = state.mode === "memory", me = deviceStaffName(state);
   const staff = [...state.STAFF].sort((a, b) => Number(a.archived) - Number(b.archived) || a.name.localeCompare(b.name));
+  const saveFile = async () => {
+    const text = JSON.stringify(await exportBackup()), url = URL.createObjectURL(new Blob([text], { type: "application/json" })), a = document.createElement("a");
+    a.href = url; a.download = backupFileName(state.business.name); document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1500);
+    await markBackedUp(); setBk({ ok: `Backup saved as ${a.download}. Keep it somewhere safe, such as your Downloads folder, WhatsApp to yourself, or email.` });
+  };
+  const shareFile = async () => {
+    const f = new File([JSON.stringify(await exportBackup())], backupFileName(state.business.name), { type: "application/json" });
+    try { await navigator.share({ files: [f], title: `${state.business.name} backup` }); await markBackedUp(); setBk({ ok: "Backup shared." }); }
+    catch (e) { if ((e as Error).name !== "AbortError") setBk({ err: "Sharing didn't work. Use Download instead." }); }
+  };
   const run = async (r: Promise<{ ok: boolean; errors?: string[] }>, fail: (e: string[]) => void, ok?: () => void) => { const x = await r; if (!x.ok) fail(x.errors ?? []); else { fail([]); ok?.(); } };
 
   return (
@@ -73,15 +92,39 @@ export default function Settings() {
           <li>Clearing this site's data, clearing the browser's history and storage, or uninstalling the app <b>erases it for good</b>.</li>
           <li>Storage protection from automatic clearing: <b>{persisted === null ? "unknown on this browser" : persisted ? "on" : "off (the browser may clear it if the phone runs low on space)"}</b>.</li>
         </ul>
-        <p className="text-sm text-muted">This is a demo version for trying the workflow. There is no sign-in, no backup and no sync yet, so please don't enter real business records.</p>
+        {state.demo ? <p className="text-sm text-muted">This is demo data for trying the workflow. Please don't enter real business records until you erase it and set up your shop.</p> : <p className="text-sm text-muted">There is no sign-in and no automatic backup or sync yet. Make a backup file regularly, and before you change phones.</p>}
       </Card>
 
       <Card className="space-y-3">
-        <h2 className="text-lg font-semibold">Reset demo data</h2>
-        <p className="text-sm text-muted">Deletes everything on this device, including anything you added, and loads fresh demo data. This can't be undone.</p>
-        {confirm
-          ? <div className="flex flex-wrap gap-2"><button onClick={() => void resetDemo().then(() => { setConfirm(false); setBiz(null); })} className={btnPrimary}>Yes, delete everything on this device</button><button onClick={() => setConfirm(false)} className={btnGhost}>Keep my data</button></div>
-          : <button onClick={() => setConfirm(true)} className={btnGhost}>Reset demo data</button>}
+        <h2 id="backup" className="text-lg font-semibold">Back up your data</h2>
+        <p className="text-sm">Last backup: <b>{state.lastBackupAt ? `${daysAgo(state.lastBackupAt)} (${new Date(state.lastBackupAt).toLocaleDateString("en-KE", { dateStyle: "medium" })})` : "never"}</b></p>
+        <p className="text-sm text-muted">A backup is one file with all your products, stock, sales, purchases, customers and staff. If this phone is lost, broken or cleared, restoring the file brings everything back. The file includes your customers' names and phone numbers, so keep it private.</p>
+        <div className="flex flex-wrap gap-2">
+          <button onClick={() => void saveFile()} className={btnPrimary}><Download size={20} />Download backup</button>
+          {canShare && <button onClick={() => void shareFile()} className={btnGhost}><Share2 size={20} />Share backup</button>}
+        </div>
+        {bk.ok && <p role="status" className="rounded-xl border border-ok p-3 text-sm font-medium text-ok">{bk.ok}</p>}
+        {bk.err && <p role="alert" className="rounded-xl border border-bad p-3 text-sm text-bad">{bk.err}</p>}
+        <h3 className="pt-2 font-semibold">Restore from a backup</h3>
+        <RestoreBackup ctx={ctx} hasData={state.P.length > 0 || state.S.length > 0} onRestored={() => nav("/", { replace: true })} />
+      </Card>
+
+      <Card className="space-y-3">
+        <h2 className="text-lg font-semibold">{state.demo ? "Reset demo data" : "Erase all data"}</h2>
+        {state.demo
+          ? <><p className="text-sm text-muted">Deletes the demo data on this device and takes you back to setting up your shop. This can't be undone.</p>
+              {confirm ? <div className="flex flex-wrap gap-2"><button onClick={() => void eraseAll().then(() => nav("/", { replace: true }))} className={btnPrimary}>Yes, delete everything on this device</button><button onClick={() => setConfirm(false)} className={btnGhost}>Keep my data</button></div>
+                : <button onClick={() => setConfirm(true)} className={btnGhost}>Reset demo data</button>}</>
+          : <><p className="text-sm text-muted">Deletes <b>everything</b> on this device: products, stock, sales, customers and staff. There is no online copy, so only a backup file can bring it back. This can't be undone.</p>
+              {confirm ? <div className="space-y-2"><label className="block"><span className="mb-1 block text-sm font-medium">Type DELETE to confirm</span><input className={fieldCls} value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" /></label>
+                  <div className="flex flex-wrap gap-2"><button disabled={typed !== "DELETE"} onClick={() => void eraseAll().then(() => { setConfirm(false); setTyped(""); nav("/", { replace: true }); })} className={btnPrimary}>Erase everything</button><button onClick={() => { setConfirm(false); setTyped(""); }} className={btnGhost}>Keep my data</button></div></div>
+                : <button onClick={() => setConfirm(true)} className={btnGhost}>Erase all data</button>}</>}
+      </Card>
+
+      <Card className="space-y-2 text-sm">
+        <h2 className="text-lg font-semibold">About</h2>
+        <p>{APP_NAME} version {APP_VERSION}</p>
+        <p><a href="/privacy.html" target="_blank" rel="noopener" className="font-semibold text-pdark underline">Privacy policy</a></p>
       </Card>
     </div>
   );

@@ -1,0 +1,14 @@
+{
+  "_readme": "The one place to change the app's name and identity. Fields marked CHANGE-ME must be filled in before you publish; run `npm run check:release` to be told what is still missing.",
+  "name": "Stockly",
+  "shortName": "Stockly",
+  "description": "Simple stock management for small shops. Track stock, sales and purchases, even without internet.",
+  "tagline": "Know your stock. Know what to do next.",
+  "themeColor": "#C0286B",
+  "backgroundColor": "#FAFAFA",
+  "siteUrl": "https://stocky-orcin.vercel.app",
+  "packageId": "CHANGE-ME.com.yourname.appname",
+  "developerName": "CHANGE-ME your name or business",
+  "contactEmail": "CHANGE-ME@example.com",
+  "privacyUpdated": "2026-10-14"
+}

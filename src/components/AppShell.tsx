@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { AlertTriangle, HardDrive, Layers, LayoutDashboard, MoreHorizontal, Package, Receipt, Search, ShoppingCart, WifiOff, SlidersHorizontal, Users, type LucideIcon } from "lucide-react";
 import { APP_NAME } from "../config";
+import { daysAgo } from "../lib/format";
 import { deviceStaffName, type StockCtx } from "../lib/store";
 
 const NAV: { to: string; label: string; icon: LucideIcon }[] = [
@@ -48,8 +49,10 @@ export default function AppShell({ stock }: { stock: StockCtx }) {
           <NavLink to="/settings" className="grid size-10 shrink-0 place-items-center rounded-full bg-soft font-bold text-pdark" aria-label={`Recording as ${who}. Open settings to change.`}>{who[0] ?? "?"}</NavLink>
         </header>
         <div role="note" className="bg-soft px-4 py-2 text-sm text-ink sm:px-6">
-          <b>Demo version.</b> {mode === "memory" ? "Storage is blocked, so nothing you enter will be kept once you close this page." : "Data stays on this device only: not synced, not backed up, invisible to other phones."} Don't enter real business records.{" "}
-          <NavLink to="/settings" className="font-semibold text-pdark underline">Details</NavLink>
+          {mode === "memory" ? <><b>Not saved.</b> Storage is blocked, so nothing you enter will be kept once you close this page.</>
+            : stock.state?.demo ? <><b>Demo data.</b> Data stays on this device only: not synced, not backed up, invisible to other phones. Don't enter real business records.</>
+            : <><b>Saved on this device only</b>, not synced or backed up automatically. {!stock.state?.lastBackupAt ? <b>No backup yet.</b> : Date.now() - stock.state.lastBackupAt > 7 * 864e5 ? <b>Last backup {daysAgo(stock.state.lastBackupAt)}.</b> : <>Last backup {daysAgo(stock.state.lastBackupAt)}.</>}</>}{" "}
+          <NavLink to="/settings" className="font-semibold text-pdark underline">{stock.state?.demo || mode === "memory" ? "Details" : "Back up"}</NavLink>
         </div>
         <main className="mx-auto max-w-[1600px] p-4 sm:p-6 lg:p-8">
           <Outlet context={stock} />

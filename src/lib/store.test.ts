@@ -14,8 +14,13 @@ describe("store (IndexedDB)", () => {
     const { _internals: s } = await import("./store");
     const { buildSale, inventory, nextReceiptNo } = await import("./engine");
 
+    const fresh = await s.load();
+    expect(fresh.mode).toBe("device");
+    expect(fresh.setup).toBe(true); // the old demo rows were cleared by the upgrade, and a fresh install does NOT load demo data by itself
+    expect(fresh.P).toHaveLength(0);
+    await s.loadDemoData();
     const snap = await s.load();
-    expect(snap.mode).toBe("device");
+    expect(snap.setup).toBe(false); expect(snap.demo).toBe(true);
     expect(snap.P.some((p) => p.name === "old")).toBe(false); // old demo data cleared
     expect(snap.P).toHaveLength(10);
     expect(snap.CAT.length).toBeGreaterThan(0);
@@ -224,9 +229,73 @@ describe("store (IndexedDB)", () => {
     expect(new Set(after.STAFF.map((x) => x.name))).toEqual(onRecords); // exactly one person for each name already on the records
     expect(["Brian", "James", "Mary"].every((n) => onRecords.has(n))).toBe(true);
     expect(after.business.name).toBe("My shop");
+    expect(after.setup).toBe(false); expect(after.demo).toBe(true); // data saved before first-run setup existed counts as demo data, so nobody is sent back to setup
     expect(deviceStaffName(after)).toBe([...onRecords].sort((a, b) => a.localeCompare(b))[0]); // the first person alphabetically
     expect(after.S.length).toBe(before.S.length);
     expect(after.M.length).toBe(before.M.length);
     expect(after.P.length).toBe(before.P.length);
+  });
+
+  it("a fresh install starts empty, setup creates the shop, and erase returns to setup", async () => {
+    const { _internals: s, deviceStaffName } = await import("./store");
+    const Pp = await import("./people");
+    await s.eraseEverything();
+    let snap = await s.load();
+    expect(snap.setup).toBe(true); expect(snap.P).toHaveLength(0); expect(snap.STAFF).toHaveLength(0); expect(snap.S).toHaveLength(0);
+
+    const setup = (shop: string, you: string) => s.transact<object>(() => Pp.buildSetup({ businessId: "t", id: s.uid(), shop, you, now: Date.now() }));
+    expect((await setup("  ", "Njeri")).ok).toBe(false);
+    expect((await setup("Mama Njeri's Duka", "")).ok).toBe(false);
+    expect((await s.load()).setup).toBe(true); // a refused setup changes nothing
+
+    expect((await setup("  Mama Njeri's Duka ", " Njeri ")).ok).toBe(true);
+    snap = await s.load();
+    expect(snap.setup).toBe(false); expect(snap.demo).toBe(false);
+    expect(snap.business.name).toBe("Mama Njeri's Duka");
+    expect(snap.STAFF.map((x) => x.name)).toEqual(["Njeri"]);
+    expect(deviceStaffName(snap)).toBe("Njeri");
+    expect(snap.P).toHaveLength(0); // no demo data sneaks in
+
+    await s.loadDemoData(); snap = await s.load();
+    expect(snap.demo).toBe(true); expect(snap.P).toHaveLength(10);
+    await s.eraseEverything(); snap = await s.load();
+    expect(snap.setup).toBe(true); expect(snap.P).toHaveLength(0);
+  });
+
+  it("backup then restore brings back everything exactly, and a bad file changes nothing", async () => {
+    const { _internals: s, deviceStaffName } = await import("./store");
+    const E = await import("./engine"), Pp = await import("./people");
+    await s.eraseEverything();
+    await s.transact<object>(() => Pp.buildSetup({ businessId: "t", id: "me", shop: "Backup Shop", you: "Njeri", now: Date.now() }));
+    const made = await s.transact<object>((x) => E.buildProductCreate({ businessId: "t", id: "prod-1", input: { name: "Unga 2kg", sku: "UNGA2", unit: "pack", cost: 120, price: 150, min: 5, openingStock: 30 }, P: x.P, C: x.CAT, staff: "Njeri", now: Date.now() }));
+    expect(made.ok).toBe(true);
+    const sold = await s.transact<object>((x) => E.buildSale({ businessId: "t", id: "sale-1", receiptNo: "SL-1001", lines: [{ productId: "prod-1", qty: 4 }], P: x.P, M: x.M, staff: "Njeri", payment: "mpesa", now: Date.now() }));
+    expect(sold.ok).toBe(true);
+    const before = await s.load();
+    const stockOf = (sn: typeof before) => E.inventory(sn.P, sn.M).find((p) => p.id === "prod-1")!.stock;
+    expect(stockOf(before)).toBe(26);
+
+    const file = JSON.parse(JSON.stringify(await s.exportBackupFile())); // as if saved to a file and read back
+    expect(file.app).toBe("stock-app"); expect(file.data.products).toHaveLength(1); expect(file.data.sales).toHaveLength(1);
+    await s.stampBackup(); expect((await s.load()).lastBackupAt).toBeGreaterThan(0);
+
+    await s.eraseEverything();
+    expect((await s.load()).setup).toBe(true);
+    const r = await s.restoreBackupFile(file);
+    expect(r.ok).toBe(true);
+    const after = await s.load();
+    expect(after.setup).toBe(false); expect(after.business.name).toBe("Backup Shop"); expect(deviceStaffName(after)).toBe("Njeri");
+    expect(stockOf(after)).toBe(26);
+    expect(after.S[0]).toMatchObject({ id: "sale-1", total: 600, payment: "mpesa", status: "completed" });
+    expect(after.M.length).toBe(before.M.length);
+    expect(after.lastBackupAt).toBe(file.exportedAt);
+
+    // a damaged file is refused and the data on the device is left exactly as it was
+    const broken = JSON.parse(JSON.stringify(file)); broken.data.movements[0].productId = "ghost";
+    const bad = await s.restoreBackupFile(broken);
+    expect(bad.ok).toBe(false);
+    expect((await s.restoreBackupFile({ not: "a backup" })).ok).toBe(false);
+    const still = await s.load();
+    expect(stockOf(still)).toBe(26); expect(still.S).toHaveLength(1);
   });
 });

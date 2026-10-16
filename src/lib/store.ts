@@ -5,8 +5,10 @@ import {
   buildArchive, buildCancel, buildCategoryCreate, buildPurchaseCancel, buildPurchaseCreate, buildPurchaseOrder, buildPurchaseUpdate, buildReceive, buildSupplierArchive, buildSupplierCreate, buildSupplierDelete, buildSupplierUpdate, nextPurchaseRef, buildCategoryDelete, buildCategoryRename, buildCount, buildProductCreate, buildProductDelete, buildProductUpdate, buildSale, nextReceiptNo,
   type AuditEntry, type BusinessProfile, type Category, type Customer, type StaffMember, type Fail, type Line, type Movement, type Payment, type Product, type ProductInput, type Purchase, type PurchaseInput, type PurchaseItem, type Receipt, type ReceiptItem, type Sale, type SaleItem, type StockCount, type Supplier, type SupplierInput, type Writes,
 } from "./engine";
-import { DEFAULT_BUSINESS, buildBusinessUpdate, buildCustomerArchive, buildCustomerCreate, buildCustomerDelete, buildCustomerUpdate, buildSetDeviceStaff, buildStaffArchive, buildStaffCreate, buildStaffDelete, deriveStaff, staffInUse, type CustomerInput } from "./people";
+import { BACKUP_APP, BACKUP_FORMAT, BACKUP_TABLES, validateBackup, type BackupFile, type BackupSummary } from "./backup";
+import { DEFAULT_BUSINESS, buildBusinessUpdate, buildSetup, buildCustomerArchive, buildCustomerCreate, buildCustomerDelete, buildCustomerUpdate, buildSetDeviceStaff, buildStaffArchive, buildStaffCreate, buildStaffDelete, deriveStaff, staffInUse, type CustomerInput } from "./people";
 import { seed, type SeedData } from "./seed";
+import { APP_VERSION } from "./version";
 
 const TABLES = ["products", "categories", "movements", "sales", "saleItems", "counts", "audit", "suppliers", "purchases", "purchaseItems", "receipts", "receiptItems", "customers", "staff", "settings"] as const;
 
@@ -32,11 +34,14 @@ class StockDB extends Dexie {
   }
 }
 const db = new StockDB();
-let mem: SeedData | null = null; // fallback when IndexedDB is blocked
+type MemState = SeedData & { onboarded: boolean; demo: boolean; lastBackupAt: number | null };
+let mem: MemState | null = null; // fallback when IndexedDB is blocked
+const emptyMem = (): MemState => ({ categories: [], products: [], movements: [], sales: [], saleItems: [], counts: [], audit: [], suppliers: [], purchases: [], purchaseItems: [], receipts: [], receiptItems: [], customers: [], staff: [], business: DEFAULT_BUSINESS, deviceStaffId: "", onboarded: false, demo: false, lastBackupAt: null });
+
 let mode: "device" | "memory" = "device";
 let memId = 1_000_000;
 
-export interface Snapshot { P: Product[]; CAT: Category[]; M: Movement[]; S: Sale[]; SI: SaleItem[]; C: StockCount[]; SUP: Supplier[]; PU: Purchase[]; PI: PurchaseItem[]; RC: Receipt[]; RI: ReceiptItem[]; CUS: Customer[]; STAFF: StaffMember[]; business: BusinessProfile; deviceStaffId: string | null; mode: "device" | "memory" }
+export interface Snapshot { P: Product[]; CAT: Category[]; M: Movement[]; S: Sale[]; SI: SaleItem[]; C: StockCount[]; SUP: Supplier[]; PU: Purchase[]; PI: PurchaseItem[]; RC: Receipt[]; RI: ReceiptItem[]; CUS: Customer[]; STAFF: StaffMember[]; business: BusinessProfile; deviceStaffId: string | null; setup: boolean; demo: boolean; lastBackupAt: number | null; mode: "device" | "memory" }
 export type Result<T> = { ok: true; value: T } | Fail;
 export interface StockCtx {
   state: Snapshot | null;
@@ -70,7 +75,14 @@ export interface StockCtx {
   /** Who is using this device. New sales, counts and deliveries are recorded under this person. */
   setDeviceStaff: (id: string) => Promise<Result<object>>;
   updateBusiness: (input: BusinessProfile) => Promise<Result<object>>;
-  resetDemo: () => Promise<void>;
+  /** First run: create the shop and the first person. Starts empty, no demo data. */
+  completeSetup: (shop: string, you: string) => Promise<Result<object>>;
+  loadDemo: () => Promise<void>;
+  /** Deletes everything on this device and returns to the setup screen. */
+  eraseAll: () => Promise<void>;
+  exportBackup: () => Promise<BackupFile>;
+  restoreBackup: (raw: unknown) => Promise<Result<BackupSummary>>;
+  markBackedUp: () => Promise<void>;
 }
 /** The name actions are recorded under on this device. */
 export const deviceStaffName = (s: Pick<Snapshot, "STAFF" | "deviceStaffId">) =>
@@ -79,11 +91,13 @@ export const uid = () => (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${
 
 async function readSettings() {
   const rows = await db.settings.toArray();
-  return { business: (rows.find((r) => r.key === "business")?.value as BusinessProfile | undefined) ?? DEFAULT_BUSINESS, deviceStaffId: (rows.find((r) => r.key === "deviceStaffId")?.value as string | undefined) ?? null };
+  const get = (k: string) => rows.find((r) => r.key === k)?.value;
+  return { business: (get("business") as BusinessProfile | undefined) ?? DEFAULT_BUSINESS, deviceStaffId: (get("deviceStaffId") as string | undefined) ?? null, setup: !get("onboarded"), demo: get("demo") === true, lastBackupAt: (get("lastBackupAt") as number | undefined) ?? null };
 }
 async function read(): Promise<Snapshot> {
   if (mode === "device") return { mode, P: await db.products.toArray(), CAT: await db.categories.toArray(), M: await db.movements.toArray(), S: await db.sales.toArray(), SI: await db.saleItems.toArray(), C: await db.counts.toArray(), SUP: await db.suppliers.toArray(), PU: await db.purchases.toArray(), PI: await db.purchaseItems.toArray(), RC: await db.receipts.toArray(), RI: await db.receiptItems.toArray(), CUS: await db.customers.toArray(), STAFF: await db.staff.toArray(), ...(await readSettings()) };
-  const m = mem!; return { mode, P: [...m.products], CAT: [...m.categories], M: [...m.movements], S: [...m.sales], SI: [...m.saleItems], C: [...m.counts], SUP: [...m.suppliers], PU: [...m.purchases], PI: [...m.purchaseItems], RC: [...m.receipts], RI: [...m.receiptItems], CUS: [...m.customers], STAFF: [...m.staff], business: m.business, deviceStaffId: m.deviceStaffId };
+  if (!mem) return { mode, P: [], CAT: [], M: [], S: [], SI: [], C: [], SUP: [], PU: [], PI: [], RC: [], RI: [], CUS: [], STAFF: [], business: DEFAULT_BUSINESS, deviceStaffId: null, setup: true, demo: false, lastBackupAt: null };
+  const m = mem; return { mode, setup: !m.onboarded, demo: m.demo, lastBackupAt: m.lastBackupAt, P: [...m.products], CAT: [...m.categories], M: [...m.movements], S: [...m.sales], SI: [...m.saleItems], C: [...m.counts], SUP: [...m.suppliers], PU: [...m.purchases], PI: [...m.purchaseItems], RC: [...m.receipts], RI: [...m.receiptItems], CUS: [...m.customers], STAFF: [...m.staff], business: m.business, deviceStaffId: m.deviceStaffId };
 }
 async function write(w: Writes) {
   if (mode === "device") {
@@ -107,11 +121,12 @@ async function write(w: Writes) {
     if (w.staffMember) await db.staff.put(w.staffMember);
     if (w.deleteStaffId) await db.staff.delete(w.deleteStaffId);
     if (w.setting) await db.settings.put(w.setting);
+    if (w.settings?.length) await db.settings.bulkPut(w.settings);
     if (w.audit.length) await db.audit.bulkAdd(w.audit);
     if (w.voidSaleId) await db.sales.update(w.voidSaleId, { status: "cancelled" });
     return;
   }
-  const m = mem!;
+  const m = (mem ??= emptyMem());
   if (w.sale) m.sales.push(w.sale);
   w.items?.forEach((i) => m.saleItems.push({ ...i, id: ++memId }));
   w.movements.forEach((x) => m.movements.push({ ...x, id: ++memId }));
@@ -132,8 +147,13 @@ async function write(w: Writes) {
   if (w.deleteCustomerId) m.customers = m.customers.filter((x) => x.id !== w.deleteCustomerId);
   if (w.staffMember) put(m.staff, w.staffMember);
   if (w.deleteStaffId) m.staff = m.staff.filter((x) => x.id !== w.deleteStaffId);
-  if (w.setting?.key === "business") m.business = w.setting.value as BusinessProfile;
-  if (w.setting?.key === "deviceStaffId") m.deviceStaffId = w.setting.value as string;
+  for (const st of [...(w.setting ? [w.setting] : []), ...(w.settings ?? [])]) {
+    if (st.key === "business") m.business = st.value as BusinessProfile;
+    if (st.key === "deviceStaffId") m.deviceStaffId = st.value as string;
+    if (st.key === "onboarded") m.onboarded = st.value as boolean;
+    if (st.key === "demo") m.demo = st.value as boolean;
+    if (st.key === "lastBackupAt") m.lastBackupAt = st.value as number;
+  }
   m.audit.push(...w.audit);
   if (w.voidSaleId) { const s = m.sales.find((x) => x.id === w.voidSaleId); if (s) s.status = "cancelled"; }
 }
@@ -164,22 +184,63 @@ async function ensureDefaults() {
 
 async function load(): Promise<Snapshot> {
   try {
-    if (!(await db.products.count())) {
-      const s = seed();
-      await db.transaction("rw", TABLES.map((t) => db[t]), async () => {
-        await db.categories.bulkAdd(s.categories); await db.products.bulkAdd(s.products); await db.movements.bulkAdd(s.movements);
-        await db.sales.bulkAdd(s.sales); await db.saleItems.bulkAdd(s.saleItems); await db.counts.bulkAdd(s.counts); await db.audit.bulkAdd(s.audit);
-        await db.suppliers.bulkAdd(s.suppliers); await db.purchases.bulkAdd(s.purchases); await db.purchaseItems.bulkAdd(s.purchaseItems);
-        await db.receipts.bulkAdd(s.receipts); await db.receiptItems.bulkAdd(s.receiptItems);
-        await db.customers.bulkAdd(s.customers); await db.staff.bulkAdd(s.staff);
-        await db.settings.bulkAdd([{ key: "business", value: s.business }, { key: "deviceStaffId", value: s.deviceStaffId }]);
-      });
+    if (await db.settings.get("onboarded")) await ensureDefaults();
+    else if ((await db.products.count()) > 0) { // saved before first-run setup existed: that was demo data
+      await ensureDefaults();
+      await db.settings.bulkPut([{ key: "onboarded", value: true }, { key: "demo", value: true }]);
     }
-    await ensureDefaults();
     mode = "device";
     void navigator.storage?.persist?.().catch(() => {}); // ask the browser not to clear this data when space is low
-  } catch (e) { console.error("Local database unavailable, using memory only:", e); mem = mem ?? seed(); mode = "memory"; }
+  } catch (e) { console.error("Local database unavailable, using memory only:", e); mem = mem ?? emptyMem(); mode = "memory"; }
   return read();
+}
+
+async function loadDemoData() {
+  const s = seed();
+  if (mode === "device") {
+    await db.transaction("rw", TABLES.map((t) => db[t]), async () => {
+      await Promise.all(TABLES.map((t) => db[t].clear()));
+      await db.categories.bulkAdd(s.categories); await db.products.bulkAdd(s.products); await db.movements.bulkAdd(s.movements);
+      await db.sales.bulkAdd(s.sales); await db.saleItems.bulkAdd(s.saleItems); await db.counts.bulkAdd(s.counts); await db.audit.bulkAdd(s.audit);
+      await db.suppliers.bulkAdd(s.suppliers); await db.purchases.bulkAdd(s.purchases); await db.purchaseItems.bulkAdd(s.purchaseItems);
+      await db.receipts.bulkAdd(s.receipts); await db.receiptItems.bulkAdd(s.receiptItems);
+      await db.customers.bulkAdd(s.customers); await db.staff.bulkAdd(s.staff);
+      await db.settings.bulkAdd([{ key: "business", value: s.business }, { key: "deviceStaffId", value: s.deviceStaffId }, { key: "onboarded", value: true }, { key: "demo", value: true }]);
+    });
+  } else mem = { ...s, onboarded: true, demo: true, lastBackupAt: null };
+}
+async function eraseEverything() {
+  if (mode === "device") await db.transaction("rw", TABLES.map((t) => db[t]), () => Promise.all(TABLES.map((t) => db[t].clear())));
+  else mem = null;
+}
+async function exportBackupFile(): Promise<BackupFile> {
+  const s = await read(), audit = mode === "device" ? await db.audit.toArray() : [...(mem?.audit ?? [])];
+  const data = { products: s.P, categories: s.CAT, movements: s.M, sales: s.S, saleItems: s.SI, counts: s.C, audit, suppliers: s.SUP, purchases: s.PU, purchaseItems: s.PI, receipts: s.RC, receiptItems: s.RI, customers: s.CUS, staff: s.STAFF };
+  return JSON.parse(JSON.stringify({ app: BACKUP_APP, format: BACKUP_FORMAT, exportedAt: Date.now(), appVersion: APP_VERSION, demo: s.demo, business: s.business, deviceStaffId: s.deviceStaffId, data }));
+}
+/** Replaces everything on this device with the backup, all or nothing. */
+async function restoreBackupFile(raw: unknown): Promise<Result<BackupSummary>> {
+  const v = validateBackup(raw);
+  if (!v.ok) return { ok: false, errors: v.errors };
+  const b = v.backup, me = b.deviceStaffId ?? (b.data.staff.find((x) => x.archived === false)?.id as string);
+  const settings = [{ key: "business", value: b.business }, { key: "deviceStaffId", value: me }, { key: "onboarded", value: true }, { key: "demo", value: b.demo }, { key: "lastBackupAt", value: b.exportedAt || Date.now() }];
+  try {
+    if (mode === "device") {
+      await db.transaction("rw", TABLES.map((t) => db[t]), async () => {
+        await Promise.all(TABLES.map((t) => db[t].clear()));
+        for (const t of BACKUP_TABLES) if (b.data[t].length) await (db[t] as Table<unknown, unknown>).bulkPut(b.data[t]);
+        await db.settings.bulkPut(settings);
+      });
+    } else {
+      const d = b.data as unknown as Record<string, unknown[]>;
+      mem = { ...emptyMem(), categories: d.categories as never, products: d.products as never, movements: d.movements as never, sales: d.sales as never, saleItems: d.saleItems as never, counts: d.counts as never, audit: d.audit as never, suppliers: d.suppliers as never, purchases: d.purchases as never, purchaseItems: d.purchaseItems as never, receipts: d.receipts as never, receiptItems: d.receiptItems as never, customers: d.customers as never, staff: d.staff as never, business: b.business, deviceStaffId: me, onboarded: true, demo: b.demo, lastBackupAt: b.exportedAt || Date.now() };
+    }
+  } catch { return { ok: false, errors: ["Could not restore the backup. Nothing was changed."] }; }
+  return { ok: true, value: v.summary };
+}
+async function stampBackup() {
+  const now = Date.now();
+  if (mode === "device") await db.settings.put({ key: "lastBackupAt", value: now }); else if (mem) mem.lastBackupAt = now;
 }
 
 export function useStock(): StockCtx {
@@ -224,9 +285,14 @@ export function useStock(): StockCtx {
     deleteStaff: async (id) => done(await transact<object>((s) => { const staffMember = find(s.STAFF, id); return staffMember ? buildStaffDelete({ ...ctxOf(s), staffMember, inUse: staffInUse(staffMember.name, { M: s.M, S: s.S, C: s.C, receiptStaff: s.RC.map((r) => r.staff) }), deviceStaffId: s.deviceStaffId, now: Date.now() }) : { ok: false, errors: ["Person not found."] }; })),
     setDeviceStaff: async (id) => done(await transact<object>((s) => { const staffMember = find(s.STAFF, id); return staffMember ? buildSetDeviceStaff({ ...ctxOf(s), staffMember, now: Date.now() }) : { ok: false, errors: ["Person not found."] }; })),
     updateBusiness: async (input) => done(await transact<object>((s) => buildBusinessUpdate({ ...ctxOf(s), input, now: Date.now() }))),
-    resetDemo: async () => { if (mode === "device") await Promise.all(TABLES.map((t) => db[t].clear())); else mem = null; await refresh(); },
+    completeSetup: async (shop, you) => done(await transact<object>(() => buildSetup({ businessId: BUSINESS_ID, id: uid(), shop, you, now: Date.now() }))),
+    loadDemo: async () => { await loadDemoData(); await refresh(); },
+    eraseAll: async () => { await eraseEverything(); await refresh(); },
+    exportBackup: exportBackupFile,
+    restoreBackup: async (raw) => done(await restoreBackupFile(raw)),
+    markBackedUp: async () => { await stampBackup(); await refresh(); },
   };
 }
 
 /** Exposed for tests only. */
-export const _internals = { db, load, transact, uid, _internals_closeAndReopen: async () => { db.close(); await db.open(); } };
+export const _internals = { db, load, transact, uid, loadDemoData, eraseEverything, exportBackupFile, restoreBackupFile, stampBackup, _internals_closeAndReopen: async () => { db.close(); await db.open(); } };
