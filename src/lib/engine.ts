@@ -44,7 +44,7 @@ export interface Writes {
   sale?: Sale; items?: SaleItem[]; movements: Movement[]; count?: StockCount;
   product?: Product; deleteProductId?: string; category?: Category; deleteCategoryId?: string;
   supplier?: Supplier; deleteSupplierId?: string; purchase?: Purchase; purchaseItems?: PurchaseItem[]; replaceItemsFor?: string; receipt?: Receipt; receiptItems?: ReceiptItem[];
-  customer?: Customer; deleteCustomerId?: string; staffMember?: StaffMember; deleteStaffId?: string; setting?: { key: string; value: unknown };
+  customer?: Customer; deleteCustomerId?: string; staffMember?: StaffMember; deleteStaffId?: string; setting?: { key: string; value: unknown }; settings?: { key: string; value: unknown }[];
   audit: AuditEntry[]; voidSaleId?: string;
 }
 

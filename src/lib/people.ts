@@ -101,3 +101,15 @@ export function buildBusinessUpdate(a: { businessId: string; input: BusinessProf
   if (errs.length) return { ok: false, errors: errs };
   return { ok: true, setting: { key: "business", value: { name, phone: phone || undefined, location: location || undefined } }, movements: [], audit: [audit(a.businessId, a.staff, a.now, "business", "business.updated", a.businessId, undefined, name)] };
 }
+
+/* ---------------- first-run setup ---------------- */
+/** A fresh install starts empty: one business and one person (whoever is setting it up), no demo data. */
+export function buildSetup(a: { businessId: string; id: string; shop: string; you: string; now: number }): ({ ok: true } & Writes) | Fail {
+  const shop = a.shop.trim(), you = a.you.trim(), errs: string[] = [];
+  if (!shop) errs.push("Enter the name of your shop."); else if (shop.length > 60) errs.push("The shop name is too long (60 characters at most).");
+  if (!you) errs.push("Enter your name."); else if (you.length > 40) errs.push("Your name is too long (40 characters at most).");
+  if (errs.length) return { ok: false, errors: errs };
+  const staffMember: StaffMember = { id: a.id, businessId: a.businessId, name: you, archived: false, createdAt: a.now };
+  return { ok: true, staffMember, movements: [], settings: [{ key: "business", value: { name: shop } }, { key: "deviceStaffId", value: a.id }, { key: "onboarded", value: true }, { key: "demo", value: false }],
+    audit: [audit(a.businessId, you, a.now, "business", "business.created", a.businessId, undefined, shop)] };
+}

@@ -15,10 +15,12 @@ import SupplierDetail from "./pages/SupplierDetail";
 import SupplierForm from "./pages/SupplierForm";
 import Sales from "./pages/Sales";
 import Settings from "./pages/Settings";
+import Setup from "./pages/Setup";
 import { useStock } from "./lib/store";
 
 export default function App() {
   const stock = useStock();
+  if (stock.state?.setup) return <Setup stock={stock} />;
   return (
     <Routes>
       <Route element={<AppShell stock={stock} />}>

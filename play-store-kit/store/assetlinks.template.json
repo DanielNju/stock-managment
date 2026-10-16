@@ -1,0 +1,13 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "PUT-YOUR-PACKAGE-ID-HERE",
+      "sha256_cert_fingerprints": [
+        "AA:BB:...:FIRST-FINGERPRINT-FROM-PLAY-CONSOLE-APP-SIGNING",
+        "CC:DD:...:SECOND-FINGERPRINT-OF-YOUR-UPLOAD-KEY (keep it too)"
+      ]
+    }
+  }
+]

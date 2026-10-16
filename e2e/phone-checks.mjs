@@ -1,10 +1,11 @@
-// Phone-size end-to-end checks: dashboard numbers, customers, staff and settings, slow stock, offline sales, stock arithmetic,
-// "saved on this device" messaging, colour contrast in light and dark mode, no sideways scrolling.
+// Phone-size end-to-end checks. Part 1 uses demo data; part 2 is the real-user path on a clean install:
+// setup, backup and restore, erase, installability, manifest, privacy page, and no requests to other sites.
 // Run:  npm i -D playwright && npx playwright install chromium && npm run build
 //       npx vite preview --port 4173 &   then   node e2e/phone-checks.mjs
 import { chromium as pw } from "playwright";
 import os from "node:os";
 import path from "node:path";
+import fs from "node:fs";
 
 const URL = "http://localhost:4173";
 const PROFILE = path.join(os.tmpdir(), "stockly-e2e-" + Date.now());
@@ -13,7 +14,7 @@ const check = async (name, fn) => {
   try { const note = await fn(); results.push(["PASS", name, note ?? ""]); }
   catch (e) { results.push(["FAIL", name, String(e.message).split("\n").filter(Boolean).slice(0, 4).join(" | ").slice(0, 600)]); }
 };
-const launch = async () => pw.launchPersistentContext(PROFILE, { headless: true, viewport: { width: 390, height: 844 } });
+const launch = async (profile = PROFILE) => pw.launchPersistentContext(profile, { headless: true, viewport: { width: 390, height: 844 } });
 const nav = (p, label) => p.locator('nav[aria-label="Main"]').getByRole("link", { name: label, exact: true }).click();
 const need = async (l, what) => { await l.first().waitFor({ timeout: 5000 }).catch(() => { throw new Error("not visible: " + what); }); };
 const stockOf = async (p, name) => { await nav(p, "Inventory"); const row = p.locator("li", { hasText: name }).first(); await row.waitFor(); return Number((await row.locator("span.text-xl").first().textContent()).trim()); };
@@ -33,7 +34,9 @@ const seen = async (p, text) => { await p.getByText(text).first().waitFor({ time
 const bodyHas = async (p, needs) => { const t = await p.locator("body").innerText(); const missing = needs.filter((n) => !(n instanceof RegExp ? n.test(t) : t.includes(n))); if (missing.length) throw new Error("missing on screen: " + missing.join(" | ")); return t; };
 let ctx = await launch(); let page = await ctx.newPage();
 const errors = []; page.on("pageerror", (e) => errors.push(e.message));
-await page.goto(URL); await page.getByRole("heading", { level: 1 }).first().waitFor();
+const foreign = []; ctx.on("request", (r) => { const u = r.url(); if (!u.startsWith(URL) && !u.startsWith("data:") && !u.startsWith("blob:") && !u.startsWith("chrome")) foreign.push(u); });
+await page.goto(URL); await page.getByRole("heading", { name: "Set up your shop" }).waitFor(); // a fresh install starts at setup, not with demo data
+await page.getByRole("button", { name: "Load demo data" }).click(); await page.getByRole("heading", { level: 1 }).filter({ hasText: /^Good / }).waitFor();
 await page.evaluate(() => navigator.serviceWorker.ready); await page.reload(); await page.getByRole("heading", { level: 1 }).first().waitFor();
 
 await check("service worker controls the page (needed to start offline)", async () => { if (!(await page.evaluate(() => !!navigator.serviceWorker.controller))) throw new Error("no controller"); });
@@ -295,6 +298,100 @@ await check("2c. offline: after closing and reopening the browser the sale and s
 await ctx.setOffline(false);
 await check("no uncaught page errors during the run", async () => { if (errors.length) throw new Error(errors[0]); });
 await ctx.close();
+
+
+// ================= part 2: the real-user path on a clean install =================
+const PROFILE2 = path.join(os.tmpdir(), "stockly-e2e2-" + Date.now());
+let c2 = await launch(PROFILE2); let p2 = await c2.newPage(); const errors2 = [];
+p2.on("pageerror", (e) => errors2.push(e.message));
+c2.on("request", (r) => { const u = r.url(); if (!u.startsWith(URL) && !u.startsWith("data:") && !u.startsWith("blob:") && !u.startsWith("chrome")) foreign.push(u); });
+const tmp = (name, text) => { const f = path.join(os.tmpdir(), name); fs.writeFileSync(f, text); return f; };
+await p2.goto(URL); await p2.getByRole("heading", { name: "Set up your shop" }).waitFor();
+await p2.evaluate(() => navigator.serviceWorker.ready);
+await check("R1. a fresh install shows setup with a privacy note, and no demo data", async () => {
+  await bodyHas(p2, ["Your data stays on this phone", "Privacy policy", "Load demo data", "Restore from a backup", "Already have a backup file?"]);
+  const t = await p2.locator("body").innerText(); if (/Coca-Cola|Demo Shop|Wanjiru/.test(t)) throw new Error("demo data is visible on a fresh install");
+});
+await check("R2. setup asks for both names", async () => {
+  await p2.getByRole("button", { name: "Start", exact: true }).click(); await seen(p2, "Enter the name of your shop.");
+  await p2.getByPlaceholder(/Njeri's Duka/).fill("E2E Duka"); await p2.getByRole("button", { name: "Start", exact: true }).click(); await seen(p2, "Enter your name.");
+});
+await check("R3. finishing setup gives an empty, real-mode dashboard with a backup reminder", async () => {
+  await p2.getByPlaceholder("e.g. Njeri").fill("Njeri"); await p2.getByRole("button", { name: "Start", exact: true }).click();
+  await p2.getByRole("heading", { level: 1 }).filter({ hasText: /^Good .*Njeri/ }).waitFor({ timeout: 6000 });
+  const t = await bodyHas(p2, ["at E2E Duka today", "Saved on this device only", "No backup yet"]); if (/Demo data/.test(t)) throw new Error("the demo banner is showing on real data");
+  await p2.goto(URL + "/products"); await seen(p2, "No products yet");
+  await p2.goto(URL + "/settings"); await p2.getByRole("heading", { name: "Settings", level: 1 }).waitFor();
+  await bodyHas(p2, ["Erase all data", "Back up your data", "Last backup: never"]); if ((await p2.getByRole("button", { name: "Reset demo data" }).count()) > 0) throw new Error("real data shows the demo reset button");
+});
+await check("R4. add a product with opening stock and sell it", async () => {
+  await p2.goto(URL + "/products/new"); await p2.getByRole("heading", { level: 1 }).first().waitFor();
+  await p2.getByLabel("Product name").fill("Unga 2kg"); await p2.getByLabel("SKU").fill("UNGA2"); await p2.getByLabel("Cost price (KES)").fill("120"); await p2.getByLabel("Selling price (KES)").fill("150"); await p2.getByLabel("Opening stock (optional)").fill("30");
+  await p2.getByRole("button", { name: "Save product" }).click(); await p2.getByRole("heading", { name: "Unga 2kg" }).waitFor({ timeout: 6000 });
+  await sell(p2, "Unga 2kg", 4, "M-Pesa");
+  const st = await stockOf(p2, "Unga 2kg"); if (st !== 26) throw new Error("expected stock 26, got " + st);
+});
+let backupPath, backupJson;
+await check("R5. Download backup saves a named file with all the records, and the banner updates", async () => {
+  await p2.goto(URL + "/settings"); await p2.getByRole("heading", { name: "Settings", level: 1 }).waitFor();
+  const [dl] = await Promise.all([p2.waitForEvent("download", { timeout: 8000 }), p2.getByRole("button", { name: "Download backup" }).click()]);
+  if (!/^e2e-duka-backup-\d{4}-\d{2}-\d{2}\.json$/.test(dl.suggestedFilename())) throw new Error("unexpected file name " + dl.suggestedFilename());
+  backupPath = path.join(os.tmpdir(), "e2e-backup.json"); await dl.saveAs(backupPath); backupJson = JSON.parse(fs.readFileSync(backupPath, "utf8"));
+  if (backupJson.app !== "stock-app" || backupJson.data.products.length !== 1 || backupJson.data.sales.length !== 1 || backupJson.business.name !== "E2E Duka") throw new Error("backup contents are wrong");
+  await seen(p2, "Backup saved as"); await bodyHas(p2, [/Last backup: .*today/]);
+  return dl.suggestedFilename() + ", " + (fs.statSync(backupPath).size) + " bytes";
+});
+await check("R6. restoring a damaged or wrong file is refused and changes nothing", async () => {
+  const input = p2.getByLabel("Choose a backup file");
+  await input.setInputFiles(tmp("junk.json", "this is not json")); await seen(p2, "isn't a backup");
+  await input.setInputFiles(tmp("other.json", JSON.stringify({ app: "something-else", format: 1, data: {} }))); await seen(p2, "isn't a backup made by this app");
+  const broken = JSON.parse(JSON.stringify(backupJson)); broken.data.movements[0].productId = "ghost";
+  await input.setInputFiles(tmp("broken.json", JSON.stringify(broken))); await seen(p2, /movements/);
+  const newer = { ...backupJson, format: 99 }; await input.setInputFiles(tmp("newer.json", JSON.stringify(newer))); await seen(p2, "newer version");
+  const st = await stockOf(p2, "Unga 2kg"); if (st !== 26) throw new Error("data changed after refused restores: " + st);
+});
+await check("R7. restoring over existing data warns first", async () => {
+  await p2.goto(URL + "/settings"); await p2.getByLabel("Choose a backup file").setInputFiles(backupPath);
+  await seen(p2, "This will replace everything currently on this device"); await bodyHas(p2, ["E2E Duka", "1 products, 1 sales"]);
+  await p2.getByRole("button", { name: "Cancel" }).last().click();
+});
+await check("R8. Erase all data needs the word DELETE, then returns to setup", async () => {
+  await p2.goto(URL + "/settings"); await p2.getByRole("button", { name: "Erase all data" }).click();
+  const go = p2.getByRole("button", { name: "Erase everything" }); if (!(await go.isDisabled())) throw new Error("erase is enabled before typing DELETE");
+  await p2.getByLabel("Type DELETE to confirm").fill("delete"); if (!(await go.isDisabled())) throw new Error("lowercase delete was accepted");
+  await p2.getByLabel("Type DELETE to confirm").fill("DELETE"); await go.click();
+  await p2.getByRole("heading", { name: "Set up your shop" }).waitFor({ timeout: 6000 });
+});
+await check("R9. restoring from the setup screen brings everything back", async () => {
+  await p2.getByRole("button", { name: "Restore from a backup" }).click();
+  await p2.getByLabel("Choose a backup file").setInputFiles(backupPath); await seen(p2, "1 products, 1 sales");
+  await p2.getByRole("button", { name: "Restore this backup" }).click();
+  await p2.getByRole("heading", { level: 1 }).filter({ hasText: /^Good .*Njeri/ }).waitFor({ timeout: 6000 });
+  await bodyHas(p2, ["at E2E Duka today"]); const st = await stockOf(p2, "Unga 2kg"); if (st !== 26) throw new Error("expected stock 26 after restore, got " + st);
+  await p2.goto(URL + "/settings"); await p2.getByRole("heading", { name: "Settings", level: 1 }).waitFor(); const t = await p2.locator("body").innerText(); if (/Last backup: never/.test(t)) throw new Error("last backup time was lost");
+});
+await check("P1. Chrome considers the app installable, and the manifest is complete", async () => {
+  const cdp = await c2.newCDPSession(p2); const r = await cdp.send("Page.getInstallabilityErrors");
+  if (r.installabilityErrors.length) throw new Error("installability errors: " + JSON.stringify(r.installabilityErrors));
+  const m = await p2.evaluate(async () => (await fetch("/manifest.webmanifest")).json());
+  const bad = []; const need = (c, msg) => { if (!c) bad.push(msg); };
+  need(m.id && m.scope && m.start_url, "id, scope and start_url"); need(m.display === "standalone", "display standalone"); need(m.name && m.short_name && m.short_name.length <= 12, "name and a short_name of at most 12 characters");
+  need(/^#[0-9a-f]{6}$/i.test(m.theme_color) && /^#[0-9a-f]{6}$/i.test(m.background_color), "theme and background colours");
+  need(m.icons.some((i) => i.sizes === "192x192" && i.type === "image/png"), "192 icon"); need(m.icons.some((i) => i.sizes === "512x512" && (i.purpose || "any").includes("any")), "512 any icon"); need(m.icons.some((i) => i.purpose === "maskable" && i.sizes === "512x512"), "512 maskable icon");
+  need((m.screenshots || []).filter((x) => x.form_factor === "narrow").length >= 2, "at least 2 phone screenshots"); need((m.shortcuts || []).length >= 1, "shortcuts");
+  for (const i of [...m.icons, ...m.screenshots]) { const d = await p2.evaluate(async (u) => { const r = await fetch(u); if (!r.ok || !(r.headers.get("content-type") || "").includes("image/png")) return "bad response " + r.status; const b = await createImageBitmap(await r.blob()); return b.width + "x" + b.height; }, "/" + i.src); if (d !== i.sizes) bad.push(`${i.src} is ${d}, manifest says ${i.sizes}`); }
+  if (bad.length) throw new Error(bad.join("; "));
+  return `installable; ${m.icons.length} icons, ${m.screenshots.length} screenshots verified`;
+});
+await check("P2. the privacy policy is a real page, not the app, and works offline", async () => {
+  await p2.goto(URL + "/privacy.html"); await p2.getByRole("heading", { name: "Privacy policy" }).waitFor();
+  if ((await p2.locator("#root").count()) > 0) throw new Error("/privacy.html is serving the app shell instead of the policy");
+  await bodyHas(p2, ["does not receive, see or sell", "Deleting your data", "Contact"]);
+  await c2.setOffline(true); await p2.goto(URL + "/privacy.html"); await p2.getByRole("heading", { name: "Privacy policy" }).waitFor({ timeout: 6000 }); await c2.setOffline(false);
+});
+await check("P3. the app made no requests to any other website", async () => { if (foreign.length) throw new Error([...new Set(foreign)].slice(0, 4).join(", ")); });
+await check("no uncaught page errors in the real-user path", async () => { if (errors2.length) throw new Error(errors2[0]); });
+await c2.close();
 
 const w = Math.max(...results.map((r) => r[1].length));
 for (const [s, n, note] of results) console.log(`${s}  ${n.padEnd(w)}  ${note}`);
