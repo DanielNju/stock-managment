@@ -1,8 +1,20 @@
 // Writes public/privacy.html from brand.json. Runs before every build (npm "prebuild").
 import { readFileSync, writeFileSync } from "node:fs";
-const b = JSON.parse(readFileSync(new URL("../brand.json", import.meta.url), "utf8"));
-const host = (() => { try { return new URL(b.siteUrl).host; } catch { return b.siteUrl; } })();
-const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+const b = JSON.parse(
+  readFileSync(new URL("../brand.json", import.meta.url), "utf8"),
+);
+const host = (() => {
+  try {
+    return new URL(b.siteUrl).host;
+  } catch {
+    return b.siteUrl;
+  }
+})();
+const esc = (s) =>
+  String(s).replace(
+    /[&<>"]/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c],
+  );
 const html = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Privacy policy - ${esc(b.name)}</title>
