@@ -257,7 +257,7 @@ Order on a phone follows urgency: summary, Needs attention, sales and profit, to
 - **Customer page:** total spent, purchases, average sale, last purchase, contact details, then the purchase history (receipt, items, who served them, cancelled sales struck through). "New sale for {first name}" opens Sales with that customer chosen.
 - **On a sale:** an optional Customer dropdown above the payment buttons ("Walk-in customer" by default) with "+ New customer" (name and phone) so nobody has to leave the sale.
 - **Settings:** four cards. Your business (name, phone, location), Staff (who is using this device, add, archive, delete if unused), Where your data is, Reset demo data (two taps).
-- **Who is using this device:** the round avatar in the header opens Settings and its label says who actions are recorded under. The dashboard greeting uses the same name.
+- **Avatar menu:** the round avatar in the header opens a dropdown. It shows who is recording on this phone, a **Switch person** list (one tap to change), Settings, Back up your data, and Privacy policy. It closes with Escape, a tap outside, or choosing an item, and is fully keyboard and screen-reader operable (`menu`, `menuitemradio`). The dashboard greeting uses the same name.
 
 ---
 
