@@ -33,28 +33,16 @@ export default function App() {
         <Route path="products/:id/edit" element={<ProductForm mode="edit" />} />
         <Route path="purchases" element={<Purchases />} />
         <Route path="purchases/new" element={<PurchaseForm mode="new" />} />
-        <Route
-          path="purchases/suppliers/new"
-          element={<SupplierForm mode="new" />}
-        />
+        <Route path="purchases/suppliers/new" element={<SupplierForm mode="new" />} />
         <Route path="purchases/suppliers/:id" element={<SupplierDetail />} />
-        <Route
-          path="purchases/suppliers/:id/edit"
-          element={<SupplierForm mode="edit" />}
-        />
+        <Route path="purchases/suppliers/:id/edit" element={<SupplierForm mode="edit" />} />
         <Route path="purchases/:id" element={<PurchaseDetail />} />
-        <Route
-          path="purchases/:id/edit"
-          element={<PurchaseForm mode="edit" />}
-        />
+        <Route path="purchases/:id/edit" element={<PurchaseForm mode="edit" />} />
         <Route path="settings" element={<Settings />} />
         <Route path="customers" element={<Customers />} />
         <Route path="customers/new" element={<CustomerForm mode="new" />} />
         <Route path="customers/:id" element={<CustomerDetail />} />
-        <Route
-          path="customers/:id/edit"
-          element={<CustomerForm mode="edit" />}
-        />
+        <Route path="customers/:id/edit" element={<CustomerForm mode="edit" />} />
       </Route>
     </Routes>
   );

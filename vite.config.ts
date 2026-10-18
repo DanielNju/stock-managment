@@ -10,11 +10,7 @@ const pkg = JSON.parse(readFileSync("./package.json", "utf8"));
 /** Fills the app name and colour into index.html from brand.json. */
 const brandHtml = (): Plugin => ({
   name: "brand-html",
-  transformIndexHtml: (html) =>
-    html
-      .replaceAll("__APP_NAME__", brand.name)
-      .replaceAll("__THEME_COLOR__", brand.themeColor)
-      .replaceAll("__DESCRIPTION__", brand.description),
+  transformIndexHtml: (html) => html.replaceAll("__APP_NAME__", brand.name).replaceAll("__THEME_COLOR__", brand.themeColor).replaceAll("__DESCRIPTION__", brand.description),
 });
 
 export default defineConfig({
@@ -25,11 +21,7 @@ export default defineConfig({
     brandHtml(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: [
-        "favicon.svg",
-        "privacy.html",
-        "icons/apple-touch-icon.png",
-      ],
+      includeAssets: ["favicon.svg", "privacy.html", "icons/apple-touch-icon.png"],
       manifest: {
         id: "/",
         name: brand.name,
@@ -46,35 +38,15 @@ export default defineConfig({
         categories: ["business", "productivity"],
         prefer_related_applications: false,
         icons: [
-          {
-            src: "icons/icon-192.png",
-            sizes: "192x192",
-            type: "image/png",
-            purpose: "any",
-          },
-          {
-            src: "icons/icon-512.png",
-            sizes: "512x512",
-            type: "image/png",
-            purpose: "any",
-          },
-          {
-            src: "icons/icon-maskable-512.png",
-            sizes: "512x512",
-            type: "image/png",
-            purpose: "maskable",
-          },
+          { src: "icons/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+          { src: "icons/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+          { src: "icons/icon-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
         ],
         shortcuts: [
           { name: "New sale", short_name: "Sell", url: "/sales" },
           { name: "Inventory", short_name: "Stock", url: "/inventory" },
         ],
-        screenshots: [1, 2, 3, 4].map((n) => ({
-          src: `screenshots/phone-${n}.png`,
-          sizes: "1080x1920",
-          type: "image/png",
-          form_factor: "narrow",
-        })),
+        screenshots: [1, 2, 3, 4].map((n) => ({ src: `screenshots/phone-${n}.png`, sizes: "1080x1920", type: "image/png", form_factor: "narrow" })),
       },
       workbox: {
         // keep store screenshots out of the offline cache: they are for the install prompt, not for using the app
