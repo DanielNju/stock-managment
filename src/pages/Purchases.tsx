@@ -13,7 +13,7 @@ const MANAGE: Permission = "manage.purchases";
 export default function Purchases() {
   const { state } = useOutletContext<StockCtx>();
   const auth = useAuth();
-  const canManage = permissions.can(auth.role, MANAGE);
+  const canManage = permissions.can(auth.effectiveRole, MANAGE);
   const [tab, setTab] = useState<"purchases" | "suppliers">("purchases");
   const [q, setQ] = useState(""), [status, setStatus] = useState(""), [range, setRange] = useState(""), [archived, setArchived] = useState(false);
   const rows = useMemo(() => {

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useOutletContext, useParams } from "react-router-dom";
 import { validateCustomer } from "../lib/people";
 import type { StockCtx } from "../lib/store";
@@ -11,8 +11,16 @@ export default function CustomerForm({ mode }: { mode: "new" | "edit" }) {
   const { id } = useParams();
   const nav = useNavigate();
   const existing = mode === "edit" ? state?.CUS.find((c) => c.id === id) : undefined;
-  const [f, setF] = useState({ name: existing?.name ?? "", phone: existing?.phone ?? "", email: existing?.email ?? "", location: existing?.location ?? "", notes: existing?.notes ?? "" });
+  const [f, setF] = useState({ name: "", phone: "", email: "", location: "", notes: "" });
   const [errors, setErrors] = useState<string[]>([]);
+
+  // Sync form with existing data when it loads (handles cold direct loads)
+  useEffect(() => {
+    if (existing) {
+      setF({ name: existing.name, phone: existing.phone ?? "", email: existing.email ?? "", location: existing.location ?? "", notes: existing.notes ?? "" });
+    }
+  }, [existing]);
+
   if (!state) return <p className="text-muted">Loading…</p>;
   if (mode === "edit" && !existing) return <Card><Empty title="Customer not found" hint="They may have been deleted." /><Link to="/customers" className={btnGhost}>Back to customers</Link></Card>;
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setF((x) => ({ ...x, [k]: e.target.value }));

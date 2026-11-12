@@ -16,7 +16,7 @@ export default function Products() {
   const ctx = useOutletContext<StockCtx>();
   const auth = useAuth();
   const { state } = ctx;
-  const canManage = permissions.can(auth.role, MANAGE);
+  const canManage = permissions.can(auth.effectiveRole, MANAGE);
   const [tab, setTab] = useState<"products" | "categories">("products");
   const [q, setQ] = useState(""), [cat, setCat] = useState(""), [status, setStatus] = useState(""), [archived, setArchived] = useState(false);
   const inv = useMemo(() => (state ? inventory(state.P, state.M, new Set(state.S.filter((s) => s.status === "cancelled").map((s) => s.id))) : []), [state]);
@@ -76,7 +76,7 @@ export default function Products() {
 
 function Categories({ ctx, cats, usage }: { ctx: StockCtx; cats: Category[]; usage: Map<string, number> }) {
   const auth = useAuth();
-  const canManage = permissions.can(auth.role, MANAGE);
+  const canManage = permissions.can(auth.effectiveRole, MANAGE);
   const [name, setName] = useState(""), [edit, setEdit] = useState<string | null>(null), [draft, setDraft] = useState(""), [errors, setErrors] = useState<string[]>([]);
   const run = async (r: Promise<{ ok: boolean; errors?: string[] }>, after?: () => void) => { const x = await r; if (!x.ok) setErrors(x.errors ?? []); else { setErrors([]); after?.(); } };
   return (

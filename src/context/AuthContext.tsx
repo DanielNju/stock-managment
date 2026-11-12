@@ -12,6 +12,7 @@ import {
 import { fetchBusiness, fetchMyBusinesses, fetchMyMembership, type Business, type BusinessRole } from "../lib/business";
 import { hasSupabase } from "../lib/supabase";
 import { setBusinessId } from "../config";
+import { useStockContext } from "../lib/store";
 
 interface AuthContextValue {
   user: AuthUser | null;
@@ -19,6 +20,7 @@ interface AuthContextValue {
   businessId: string | null;
   business: Business | null;
   role: BusinessRole | null;
+  effectiveRole: BusinessRole | null;
   businessError: string | null;
   loading: boolean;
   configured: boolean;
@@ -38,6 +40,7 @@ export const useAuth = (): AuthContextValue => {
 };
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const stock = useStockContext();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [businessId, setBusinessIdState] = useState<string | null>(null);
@@ -45,6 +48,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<BusinessRole | null>(null);
   const [businessError, setBusinessError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Compute effective role: cloud role, or local owner when in local-only mode with a business
+  const effectiveRole = role ?? (stock && !hasSupabase && stock.state?.business && stock.state.STAFF.length > 0 ? "owner" as BusinessRole : null);
 
   const selectBusiness = async (id: string) => {
     const result = await fetchBusiness(id);
@@ -169,6 +175,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     businessId,
     business,
     role,
+    effectiveRole,
     businessError,
     loading,
     configured: hasSupabase,

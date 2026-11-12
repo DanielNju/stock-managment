@@ -1,5 +1,6 @@
 import Dexie, { type Table } from "dexie";
-import { useCallback, useEffect, useState } from "react";
+import { createContext, useContext, useCallback, useEffect, useState, type ReactNode } from "react";
+import React from "react";
 import { BUSINESS_ID, onBusinessIdChange } from "../config";
 import {
   buildArchive, buildCancel, buildCategoryCreate, buildPurchaseCancel, buildPurchaseCreate, buildPurchaseOrder, buildPurchaseUpdate, buildReceive, buildSupplierArchive, buildSupplierCreate, buildSupplierDelete, buildSupplierUpdate, nextPurchaseRef, buildCategoryDelete, buildCategoryRename, buildCount, buildProductCreate, buildProductDelete, buildProductUpdate, buildSale, nextReceiptNo,
@@ -118,6 +119,19 @@ export interface StockCtx {
   restoreBackup: (raw: unknown) => Promise<Result<BackupSummary>>;
   markBackedUp: () => Promise<void>;
 }
+export const StockContext = createContext<StockCtx | null>(null);
+
+export const useStockContext = (): StockCtx => {
+  const ctx = useContext(StockContext);
+  if (!ctx) throw new Error("useStockContext must be used inside a StockProvider");
+  return ctx;
+};
+
+export function StockProvider({ children }: { children: ReactNode }) {
+  const stock = useStock();
+  return React.createElement(StockContext.Provider, { value: stock }, children);
+}
+
 /** The name actions are recorded under on this device. */
 export const deviceStaffName = (s: Pick<Snapshot, "STAFF" | "deviceStaffId">) =>
   (s.STAFF.find((x) => x.id === s.deviceStaffId && !x.archived) ?? s.STAFF.find((x) => !x.archived))?.name ?? "Unassigned";
