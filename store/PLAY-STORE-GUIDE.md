@@ -9,7 +9,8 @@ The app is now a **Capacitor hybrid** — the same React PWA is wrapped in a nat
 | `npm run cap:sync` | Build web assets and copy them into the native projects |
 | `npm run cap:android` | Build and launch the Android project (needs Android Studio) |
 | `npm run cap:ios` | Build and launch the iOS project (needs macOS + Xcode) |
-| `npm run cap:web` | Open the web preview in Capacitor's web server |
+| `npm run cap:open:android` | Open the Android project in Android Studio |
+| `npm run cap:open:ios` | Open the iOS project in Xcode (macOS only) |
 
 The web build (`npm run build`) is the single source of truth. The native projects just serve the files in `dist/`.
 
@@ -37,21 +38,16 @@ The web build (`npm run build`) is the single source of truth. The native projec
 1. **App name.** "Stockly" is already used by other inventory apps on Google Play, so choose a distinctive name. Check the Play Store and a web search for it first. I have not checked any alternative names. Change it in `brand.json`.
 2. **Package ID**, such as `com.yourname.shopapp` (lowercase, dots, no spaces). **It can never be changed after your first upload.** Put it in `brand.json` as `packageId`. The same ID is used for both Android and iOS.
 3. **Developer name and contact email** in `brand.json`. The email is printed in the privacy policy and shown on your Play page.
-4. **A stable web address.** The bundled app opens your website. The `vercel.app` address works, but a custom domain you control is safer. If you rename or recreate the Vercel project, the address changes and the installed app breaks.
+4. **A stable web address for the PWA.** Native Capacitor builds bundle the web app and do not depend on the website URL to launch. Keep a stable URL for users who install the PWA from a browser and for the privacy-policy link in each store listing.
 
-## 4. Before you build the package
+## 4. Prepare the native app
 
 ```bash
-# 1. edit brand.json (name, packageId, developerName, contactEmail)
-python3 scripts/make-icons.py                       # only if you changed the look
-npm run build                                       # also regenerates privacy.html with your details
-npx vite preview --port 4176 &                      # needs Playwright installed once: npm i -D playwright && npx playwright install chromium
-node scripts/make-store-assets.mjs http://localhost:4176   # re-takes the screenshots and feature graphic with your new name
-npm run check:release                               # lists anything still missing
+npm run check:release
+npm run cap:sync
 ```
-Deploy to your host (`vercel.json` makes direct links like `/customers` work). Then open these in a normal browser tab and confirm:
-- `https://YOUR-SITE/privacy.html` shows the policy (not the app).
-- `https://YOUR-SITE/manifest.webmanifest` shows JSON.
+
+Choose the final app name and identifier before the first store upload. The app ID must match `brand.json`, `android/app/build.gradle`, and the iOS target's bundle identifier. Set the display name in the Android app resources and iOS `CFBundleDisplayName` too; `cap:sync` does not change those native project settings. Keep the Android `versionCode` and iOS `CURRENT_PROJECT_VERSION` increasing for each release. After changing web assets, run `npm run cap:sync` again.
 
 ## 5. Google Play account
 
@@ -59,35 +55,39 @@ Deploy to your host (`vercel.json` makes direct links like `/customers` work). T
 2. **New personal accounts must run a closed test first.** Third-party guides in 2026 report that a personal account created after November 2023 needs **at least 12 testers opted in continuously for 14 days** before it can apply for production access. Rules change, so read what your own Play Console says. Organization accounts are described differently. Check which type suits you.
 3. Do not buy fake testers. Use real people. Your shop-owner testers from the validation kit are exactly the right group.
 
-## 6. Build the Android package (no coding)
+## 6. Build for Android
 
-This uses PWABuilder, a free service that wraps your website as an Android app (a "Trusted Web Activity").
+On Windows, macOS, or Linux with Android Studio and the Android SDK installed:
 
-1. Go to **pwabuilder.com**, enter your site address, and start. It should show your manifest and service worker as passing.
-2. Choose **Package for stores > Android**. Fill in:
-   - Package ID: the one from `brand.json`
-   - App name: from `brand.json`
-   - App version `1.0.0`, version code `1`
-   - Display mode: standalone; orientation: portrait
-   - Signing key: **Create new**. Download the zip and **keep the keystore file and its password in two safe places**. Losing them makes updates painful.
-3. **Target Android 16 (API 36).** Google requires new apps to target it. Third-party reports say PWABuilder now does, but **check**: the package page or Play Console will warn you if not.
-4. The zip contains the `.aab` file and a `assetlinks.json` for your upload key.
+1. Run `npm run cap:sync`, then `npm run cap:open:android`.
+2. In Android Studio, wait for Gradle sync and select a device or emulator to test.
+3. For Play, select **Build > Generate Signed Bundle / APK**, choose **Android App Bundle**, and create or select your upload key. Keep the keystore and passwords in secure backups.
+4. Upload the signed `.aab` to Play Console internal testing first. Check Play Console's current target API requirement before release; this project is configured for API 36.
 
-## 7. Make the app open full-screen (Digital Asset Links)
+## 7. Build for iOS
 
-Without this the app shows a browser address bar.
+iOS app builds and signing require **macOS with Xcode**; they cannot be produced on Windows.
 
-1. Upload the `.aab` to **Internal testing** in Play Console (turn on Play App Signing, which is the default).
-2. In Play Console open **Test and release > App integrity > App signing** and copy the **SHA-256 certificate fingerprint**.
-3. Copy `store/assetlinks.template.json` to `public/.well-known/assetlinks.json`. Fill in your package ID and **both** fingerprints (the Play app signing key and your upload key).
-4. Redeploy. Open `https://YOUR-SITE/.well-known/assetlinks.json`. You must see the JSON, not the app. Then reinstall from the testing link and confirm there is no address bar.
+1. On a Mac, install the project dependencies and run `npm run cap:sync`.
+2. Run `npm run cap:open:ios` to open `ios/App/App.xcodeproj` in Xcode.
+3. In Xcode, select the App target, set your Apple Developer team and a unique bundle identifier, then choose an iPhone simulator or connected iPhone and run the app.
+4. For TestFlight/App Store, select **Product > Archive**, resolve any signing or privacy prompts, then distribute the archive through App Store Connect.
+5. Test install, offline use, data persistence, backup and restore, and deep links on a real iPhone before submitting. iOS 15 or newer is the configured deployment target.
 
-## 8. Create the listing
+## 8. Create the store listings
+
+### Google Play
 
 1. Play Console > Create app. Name, language, App, Free.
 2. **Main store listing:** paste text from `store/LISTING.md` and upload `icon-512.png`, `feature-graphic.png` and the screenshots from `store/phone-screenshots/`.
 3. **Privacy policy URL:** `https://YOUR-SITE/privacy.html`
 4. **App content:** the Data safety, Content rating and Target audience answers are suggested in `store/LISTING.md`. Read each question yourself. You are the one declaring it.
+
+### Apple App Store
+
+1. In App Store Connect, create the app using the iOS bundle identifier and SKU.
+2. Prepare iPhone screenshots in the exact pixel sizes currently accepted by App Store Connect, plus a support URL and `https://YOUR-SITE/privacy.html` as the privacy-policy URL.
+3. Complete the privacy, age-rating, pricing, and export-compliance questions accurately, then submit the Xcode archive for review.
 
 ## 9. Test, then release
 
@@ -98,7 +98,7 @@ Without this the app shows a browser address bar.
 
 ## 10. After launch
 
-- **Web updates reach users automatically** when you deploy. The Android file only needs a new version if you change the package ID, icons or manifest settings, or when Google raises the target Android version (yearly).
+- The native app contains bundled web assets. Web changes do **not** reach native-app users just by deploying the website: rebuild, increase the platform version, and submit an update to each store.
 - Reply to reviews and keep the support email working.
 - Tell users to **back up**. This is the biggest risk for them: there is no online copy.
 
@@ -106,7 +106,6 @@ Without this the app shows a browser address bar.
 
 - **No sync, no sign-in, no cloud backup.** One phone, one set of data. Backups are files the user makes.
 - **No encryption** of the data or backup files beyond the phone's own security.
-- **First install needs internet** (to fetch the app). After that it works offline.
-- **The data lives in Chrome's storage for your site.** If the user clears Chrome's data for the site, or app storage, it is erased. Backups are the protection.
-- **Android only.** iPhone users can use the website, but storage there can be cleared by Safari after a week without a visit unless the app is added to the Home Screen.
-- If you later need **no network requests at all**, native backup sharing or notifications, a bundled (Capacitor) build is the next step. It is a bigger change.
+- A bundled native app can start offline after installation; sign-in and invitations still need internet when Supabase is configured.
+- **The data lives in the app's local WebView storage.** Uninstalling or clearing app data erases it; backups are the protection.
+- iPhone users can install the native iOS app through the App Store or add the PWA from Safari using **Share > Add to Home Screen**. These are separate install paths.

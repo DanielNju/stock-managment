@@ -32,6 +32,7 @@ Every stock change is recorded as a **movement** (a sale, a purchase, an adjustm
 | Local data (IndexedDB via Dexie), upgrade from the v0.1 demo database | Built and tested |
 | Local tenant separation | Each selected business uses a separate IndexedDB database on this device. This is not server sync or a substitute for PostgreSQL RLS. |
 | Installable PWA with service worker | Configured (production build only) |
+| iOS and Android apps (Capacitor) | Native project scaffolds and asset sync are in place; building and signing require Xcode or Android Studio |
 | Suppliers: add, edit, archive, delete (only with no purchases), purchase history and totals | Built and tested |
 | Purchases: draft, ordered, partial and full receiving, cancel, list with search and filters | Built and tested |
 | Receiving: partial deliveries, no over-receiving, retry-proof, all-or-nothing | Built and tested |
@@ -207,20 +208,18 @@ The dashboard borrows layout patterns from the Innap admin template. This projec
 
 Not yet chosen.
 
-## Releasing to Google Play
+## Releasing to Google Play or the App Store
 
-Everything is in `store/`. Start with **`store/PLAY-STORE-GUIDE.md`**. In short:
+The same React app is bundled into native Android and iOS shells with Capacitor. Start with **[store/PLAY-STORE-GUIDE.md](./store/PLAY-STORE-GUIDE.md)** for Android and iPhone release steps.
 
-1. Edit `brand.json`: name, `packageId` (permanent once uploaded), developer name, contact email.
-2. `npm run build` (also writes `public/privacy.html` from `brand.json`), then `npm run check:release` to see what is still missing.
-3. Re-take the store images if you changed the name: `python3 scripts/make-icons.py` and `node scripts/make-store-assets.mjs http://localhost:4176` (needs Playwright).
-4. Deploy, build the Android package at pwabuilder.com, add `/.well-known/assetlinks.json`, and follow the Play Console steps in the guide.
-
-What I could not do from here: build the `.aab`, create the Play account, or test on a real phone or on Play.
+- `npm run cap:sync` builds the web app and copies it into both native projects.
+- Android builds need Android Studio and the Android SDK. iOS builds need macOS and Xcode.
+- Store accounts, signing, device testing, and submission must be completed by the app owner.
+- The PWA can also be used from Safari on iPhone and added to the Home Screen; that is separate from installing the native iOS app.
 
 ## Deploying (Vercel or any static host)
 
 - Build command `npm run build`, output folder `dist`.
 - `vercel.json` rewrites every path to `index.html` (real files such as `/privacy.html` and `/.well-known/…` are still served as files) and stops the service worker and manifest from being cached. Without it, opening or refreshing a deep link such as `/customers` returns a 404, because only `index.html` exists on the server. After deploying, open `/customers` directly in a new tab to confirm.
-- The app updates itself in the background. After you deploy a new version, people may need to close and reopen the app once, or reload twice, to get it.
+- The PWA updates itself in the background after deployment. Native Android and iOS apps need a new build and store release to receive web-app changes.
 - Each phone keeps its own data. Redeploying does not touch what is already stored on a phone, and upgrades add new tables without clearing the old ones.
