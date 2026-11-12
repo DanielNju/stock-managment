@@ -9,7 +9,11 @@
     "preview": "vite preview",
     "test": "vitest run",
     "prebuild": "node scripts/make-privacy.mjs",
-    "check:release": "node scripts/check-release.mjs"
+    "check:release": "node scripts/check-release.mjs",
+    "cap:sync": "npm run build && npx capacitor copy",
+    "cap:android": "npm run build && npx capacitor run android",
+    "cap:ios": "npm run build && npx capacitor run ios",
+    "cap:web": "npm run build && npx capacitor open web"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.119.0",
@@ -21,6 +25,10 @@
     "recharts": "^2.15.0"
   },
   "devDependencies": {
+    "@capacitor/android": "^8.6.0",
+    "@capacitor/cli": "^8.6.0",
+    "@capacitor/core": "^8.6.0",
+    "@capacitor/ios": "^8.6.0",
     "@tailwindcss/vite": "^4.0.0",
     "@types/node": "^26.6.5",
     "@types/react": "^18.3.12",

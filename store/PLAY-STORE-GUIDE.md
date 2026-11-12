@@ -1,6 +1,17 @@
-# Getting the app onto Google Play
+# Getting the app onto Google Play and the App Store
 
-The app is ready to be packaged. This guide covers what is **done**, what **only you can do**, and the exact steps in order.
+The app is now a **Capacitor hybrid** — the same React PWA is wrapped in a native shell for both Android and iOS. This guide covers what is **done**, what **only you can do**, and the exact steps in order.
+
+## 0. Build commands
+
+| Command | What it does |
+|---|---|
+| `npm run cap:sync` | Build web assets and copy them into the native projects |
+| `npm run cap:android` | Build and launch the Android project (needs Android Studio) |
+| `npm run cap:ios` | Build and launch the iOS project (needs macOS + Xcode) |
+| `npm run cap:web` | Open the web preview in Capacitor's web server |
+
+The web build (`npm run build`) is the single source of truth. The native projects just serve the files in `dist/`.
 
 ## 1. What is already done and verified
 
@@ -17,16 +28,16 @@ The app is ready to be packaged. This guide covers what is **done**, what **only
 
 ## 2. What I could not do, and why
 
-- **Build the Android file (.aab).** It needs the Android SDK and Google's servers, which I can't reach from here.
-- **Create your Google Play account, pay the fee, or upload anything.** Those need your identity and payment.
+- **Build the Android `.aab` or iOS `.ipa`.** Building needs the Android SDK (any machine) and macOS + Xcode (iOS only). I can't reach those from here.
+- **Create your Google Play or App Store account, pay the fee, or upload anything.** Those need your identity and payment.
 - **Test on a real phone or on Play.** Everything above was tested in a desktop-grade browser at phone size.
 
 ## 3. Decide these first (they are hard to change later)
 
 1. **App name.** "Stockly" is already used by other inventory apps on Google Play, so choose a distinctive name. Check the Play Store and a web search for it first. I have not checked any alternative names. Change it in `brand.json`.
-2. **Package ID**, such as `com.yourname.shopapp` (lowercase, dots, no spaces). **It can never be changed after your first upload.** Put it in `brand.json` as `packageId`.
+2. **Package ID**, such as `com.yourname.shopapp` (lowercase, dots, no spaces). **It can never be changed after your first upload.** Put it in `brand.json` as `packageId`. The same ID is used for both Android and iOS.
 3. **Developer name and contact email** in `brand.json`. The email is printed in the privacy policy and shown on your Play page.
-4. **A stable web address.** The Android app opens your website. The `vercel.app` address works, but a custom domain you control is safer. If you rename or recreate the Vercel project, the address changes and the installed app breaks.
+4. **A stable web address.** The bundled app opens your website. The `vercel.app` address works, but a custom domain you control is safer. If you rename or recreate the Vercel project, the address changes and the installed app breaks.
 
 ## 4. Before you build the package
 

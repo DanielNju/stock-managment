@@ -1,1 +1,20 @@
 node_modules
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Build output
+dist/
+
+# Capacitor native platform build artefacts (keep the project dirs)
+android/app/build/
+android/.gradle/
+android/.gradle/
+android/local.properties
+ios/App/build/
+ios/App/Podfile.lock
+*.xcworkspace
+*.xcconfig
