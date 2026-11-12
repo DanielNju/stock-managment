@@ -16,7 +16,7 @@ export default function ProductDetail() {
   const auth = useAuth();
   const { id } = useParams();
   const nav = useNavigate();
-  const canManage = permissions.can(auth.role, MANAGE);
+  const canManage = permissions.can(auth.effectiveRole, MANAGE);
   const [errors, setErrors] = useState<string[]>([]);
   const [confirm, setConfirm] = useState(false);
   const p = state?.P.find((x) => x.id === id);

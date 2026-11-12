@@ -23,7 +23,7 @@ import CreateBusiness from "./pages/CreateBusiness";
 import AcceptInvitation from "./pages/AcceptInvitation";
 import AuditLog from "./pages/AuditLog";
 import Reports from "./pages/Reports";
-import { useStock } from "./lib/store";
+import { useStockContext } from "./lib/store";
 import { useAuth } from "./context/AuthContext";
 import type { StockCtx } from "./lib/store";
 import { Card, btnPrimary } from "./components/ui";
@@ -62,7 +62,7 @@ const AppRoutes = ({ stock }: { stock: StockCtx }) => (
 
 export default function App() {
   const auth = useAuth();
-  const stock = useStock();
+  const stock = useStockContext();
   const location = useLocation();
 
   if (auth.loading) return <Loading />;

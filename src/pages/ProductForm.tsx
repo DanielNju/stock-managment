@@ -17,14 +17,14 @@ export default function ProductForm({ mode }: { mode: "new" | "edit" }) {
   const auth = useAuth();
   const { id } = useParams();
   const nav = useNavigate();
-  const canManage = permissions.can(auth.role, MANAGE);
+  const canManage = permissions.can(auth.effectiveRole, MANAGE);
   const existing = mode === "edit" ? state?.P.find((p) => p.id === id) : undefined;
   if (!state) return <p className="text-muted">Loading…</p>;
   if (!canManage) {
     return (
       <div className="mx-auto max-w-2xl space-y-4">
         <h1 className="text-2xl font-bold sm:text-3xl">{mode === "new" ? "Add product" : `Edit ${existing?.name ?? "product"}`}</h1>
-        <Card className="space-y-2"><p>Your role ({auth.role ?? "none"}) can't create or change products. Product management is limited to the Owner and Manager.</p>
+        <Card className="space-y-2"><p>Your role ({auth.effectiveRole ?? "none"}) can't create or change products. Product management is limited to the Owner and Manager.</p>
           <Link to="/products" className={btnGhost}>Back to products</Link></Card>
       </div>
     );

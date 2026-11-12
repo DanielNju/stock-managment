@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useOutletContext, useParams } from "react-router-dom";
 import type { StockCtx } from "../lib/store";
 import { useAuth } from "../context/AuthContext";
@@ -13,16 +13,23 @@ export default function SupplierForm({ mode }: { mode: "new" | "edit" }) {
   const auth = useAuth();
   const { id } = useParams();
   const nav = useNavigate();
-  const canManage = permissions.can(auth.role, MANAGE);
+  const canManage = permissions.can(auth.effectiveRole, MANAGE);
   const sup = mode === "edit" ? state?.SUP.find((s) => s.id === id) : undefined;
-  const [f, setF] = useState({ name: sup?.name ?? "", contact: sup?.contact ?? "", phone: sup?.phone ?? "", email: sup?.email ?? "", location: sup?.location ?? "", notes: sup?.notes ?? "" });
+  const [f, setF] = useState({ name: "", contact: "", phone: "", email: "", location: "", notes: "" });
   const [errors, setErrors] = useState<string[]>([]);
+
+  // Sync form with existing data when it loads (handles cold direct loads)
+  useEffect(() => {
+    if (sup) {
+      setF({ name: sup.name, contact: sup.contact ?? "", phone: sup.phone ?? "", email: sup.email ?? "", location: sup.location ?? "", notes: sup.notes ?? "" });
+    }
+  }, [sup]);
   if (!state) return <p className="text-muted">Loading…</p>;
   if (!canManage) {
     return (
       <div className="mx-auto max-w-2xl space-y-4">
         <h1 className="text-2xl font-bold sm:text-3xl">{mode === "new" ? "Add supplier" : `Edit ${sup?.name ?? "supplier"}`}</h1>
-        <Card className="space-y-2"><p>Your role ({auth.role ?? "none"}) can't create or change suppliers. Suppliers are limited to the Owner and Manager.</p>
+        <Card className="space-y-2"><p>Your role ({auth.effectiveRole ?? "none"}) can't create or change suppliers. Suppliers are limited to the Owner and Manager.</p>
           <Link to="/purchases" className={btnGhost}>Back to purchases</Link></Card>
       </div>
     );

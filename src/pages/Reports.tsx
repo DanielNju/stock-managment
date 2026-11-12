@@ -14,13 +14,13 @@ const VIEW: Permission = "view.reports";
 export default function Reports() {
   const { state } = useOutletContext<StockCtx>();
   const auth = useAuth();
-  const canView = permissions.can(auth.role, VIEW);
+  const canView = permissions.can(auth.effectiveRole, VIEW);
   if (!state) return <p className="text-muted">Loading reports…</p>;
   if (!canView) {
     return (
       <div className="mx-auto max-w-2xl space-y-4">
         <h1 className="text-2xl font-bold sm:text-3xl">Business report</h1>
-        <Card className="space-y-2"><p>Your role ({auth.role ?? "none"}) can't view reports. Reports are available to the Owner and Manager.</p></Card>
+        <Card className="space-y-2"><p>Your role ({auth.effectiveRole ?? "none"}) can't view reports. Reports are available to the Owner and Manager.</p></Card>
       </div>
     );
   }
