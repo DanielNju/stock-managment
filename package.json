@@ -13,7 +13,8 @@
     "cap:sync": "npm run build && npx capacitor copy",
     "cap:android": "npm run build && npx capacitor run android",
     "cap:ios": "npm run build && npx capacitor run ios",
-    "cap:web": "npm run build && npx capacitor open web"
+    "cap:open:android": "npx capacitor open android",
+    "cap:open:ios": "npx capacitor open ios"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.119.0",
